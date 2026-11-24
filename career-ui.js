@@ -132,15 +132,26 @@ function createPos(sel = null) {
     <div class="spread"><h2>选择我的位置</h2><button class="muted small" id="back">返回</button></div>
     <p class="muted small">你会成为一名新秀，加入一位明星所在的球队。</p>
     ${h ? `<p class="small hidden-chip">你的打法：${h.attr} ${h.v}（和${esc(h.nick)}一样）· 推荐位置：${E.POS_LABEL[h.pos]}</p>` : ''}
-    <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" value="${esc(store.get('nba-myname', ''))}">
+    <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" value="${esc(store.get('nba-myname-draft', null) ?? store.get('nba-myname', ''))}">
     <div class="pos-pick">${E.POS.map((p) => `<button class="pos-btn ${sel === p ? 'sel' : ''}" data-p="${p}">${posCourt(p)}
       <span class="pos-txt"><b>${E.POS_LABEL[p]}<em>${p}</em></b><small>${POS_ROLE[p]}</small></span>${h && h.pos === p ? '<i class="pos-rec">推荐</i>' : ''}</button>`).join('')}</div>
     <button class="btn btn-primary sticky-cta" id="ok" ${sel ? '' : 'disabled'}>确认位置</button>`;
   document.getElementById('back').onclick = () => go(build ? buildScreen : home);
-  app.querySelectorAll('.pos-btn').forEach((b) => (b.onclick = () => { store.set('nba-myname', document.getElementById('myName').value.trim()); createPos(b.dataset.p); }));
-  document.getElementById('ok').onclick = () => {
-    const name = document.getElementById('myName').value.trim() || '无名新秀';
+  // 选位置时页面会重画：没确认的名字先记成草稿；确认后（虎扑版还要过内容安全检测）才存成正式名字，开局时用的是正式名字
+  app.querySelectorAll('.pos-btn').forEach((b) => (b.onclick = () => { store.set('nba-myname-draft', document.getElementById('myName').value.trim()); createPos(b.dataset.p); }));
+  document.getElementById('ok').onclick = async (ev) => {
+    const btn = ev.currentTarget;
+    const typed = document.getElementById('myName').value.trim();
+    // 虎扑版：自己起的名字先过虎扑内容安全检测（index.html 里的 HupuBridge），没通过不让开始
+    if (typed && window.HupuBridge) {
+      btn.disabled = true;
+      const r = await window.HupuBridge.checkText(typed);
+      btn.disabled = false;
+      if (!r.ok) { toast(r.msg); return; }
+    }
+    const name = typed || '无名新秀';
     store.set('nba-myname', name);
+    store.del('nba-myname-draft');
     startBuild(sel, name); // 改了位置 / 名字：建球员从头来（打法那一项照样锁定）
   };
 }
@@ -1982,3 +1993,5 @@ if (run && Array.isArray(run.team)) {
 }
 // game.js 加载时已经画过一次旧首页，这里重画成生涯模式
 home();
+// 虎扑版：首页画好、能点了，通知平台（HupuBridge 会等标题字体和首页照片加载完再发）
+if (window.HupuBridge) window.HupuBridge.ready(app);
