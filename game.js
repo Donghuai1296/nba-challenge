@@ -118,7 +118,7 @@ function tallCard(p, opts = {}) {
     <div class="tc-ring">${ringSVG(p.ovr)}</div>
     <div class="tc-meta">${num !== undefined ? `#${num}<br>` : ''}${E.POS_LABEL[p.pos] || ''}${p.bondPlus ? `<br><span class="tc-bond">🔗+${p.bondPlus}</span>` : ''}</div>
     ${opts.badge ? `<div class="tc-badge">${opts.badge}</div>` : ''}
-    <div class="tc-name">${first ? `<small>${esc(first)}</small>` : ''}<b>${esc(last)}</b></div>
+    <div class="tc-name">${first ? `<small>${esc(first)}</small>` : ''}<b${last.length >= 9 ? ' class="xl"' : last.length >= 7 ? ' class="lg"' : ''}>${esc(last)}</b></div>
   </${tag}>`;
 }
 // 顶部详情面板（类似 2K 阵容编辑器的上方大卡）
@@ -160,19 +160,20 @@ function missingNote(team) {
 let swapPick = null;
 function rosterHtml(team0, opts = {}) {
   const team = team0 === run.team ? withBond(team0) : team0; // 羁绊里的人显示加成后的总评；一拆散就变回原来的
-  const row = (p, i) => tallCard(p, {
+  // 手机竖屏：首发、替补都用一排 5 张的小卡（以前是左右滑的大卡，一次只看得到 3 个人）
+  const row = (p, i) => miniCard(p, {
     button: opts.editable,
     sel: swapPick === i,
-    badge: isCore(p) ? '核心' : '', // 羁绊加成显示在右上角号码、位置下面（tc-bond），不放在头像旁边
+    badge: isCore(p) ? '核心' : '',
     attrs: opts.editable ? `data-swap="${i}"` : '',
   });
   const focus = team[swapPick != null ? swapPick : 0];
   return `
     ${detailPanel(focus, isCore(focus) ? '核心球星' : '')}
     <div class="spread"><h3>首发</h3><span class="muted small num">均分 ${fmt1(starterAvg(team))}</span></div>
-    <div class="trow">${team.slice(0, 5).map((p, i) => row(p, i)).join('')}</div>
+    <div class="mgrid">${team.slice(0, 5).map((p, i) => row(p, i)).join('')}</div>
     <div class="spread"><h3>替补</h3><span class="muted small num">均分 ${fmt1(benchAvg(team))}</span></div>
-    <div class="trow bench">${team.slice(5).map((p, i) => row(p, i + 5)).join('')}</div>
+    <div class="mgrid">${team.slice(5).map((p, i) => row(p, i + 5)).join('')}</div>
     ${opts.editable ? `${missingNote(team)}<p class="note">${swapPick === null ? '点一名球员，再点另一名，两人互换（首发↔替补）。' : `已选 ${esc(short(team[swapPick].name))}，再点一名球员和他互换。`}</p>
       <button class="btn btn-ghost" id="arrange">一键排首发（每个位置用最强的人）</button>` : ''}`;
 }
@@ -235,9 +236,12 @@ function lineupGrids(team0) {
 function miniCard(p, opts = {}) {
   const { kit } = Avatar.kitOf(p);
   const tag = opts.button ? 'button' : 'div';
-  return `<${tag} class="mcard${opts.sel ? ' sel' : ''}${p.isMe ? ' me' : ''}" style="--c1:${kit.primary}" ${opts.attrs || ''}>
+  // opts.rank：legend / gold 加金边（抽卡组首发的传奇卡、金卡）；opts.badge：右上角位置下面的小角标（核心、传奇卡…）
+  const rank = opts.rank && opts.rank !== 'normal' ? ` rank-${opts.rank}` : '';
+  return `<${tag} class="mcard${opts.sel ? ' sel' : ''}${p.isMe ? ' me' : ''}${rank}" style="--c1:${kit.primary}" ${opts.attrs || ''}>
     <span class="mc-ovr num" style="color:${ringColor(p.ovr)}">${p.ovr}</span><span class="mc-pos">${E.POS_LABEL[p.pos] || ''}</span>
     ${p.bondPlus ? `<span class="mc-bond">🔗+${p.bondPlus}</span>` : ''}
+    ${opts.badge ? `<span class="mc-badge">${opts.badge}</span>` : ''}
     <div class="mc-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
     ${p.isMe ? '<span class="mc-me">我</span>' : ''}<b class="mc-name">${esc(short(p.name))}</b>
   </${tag}>`;

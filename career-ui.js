@@ -229,7 +229,9 @@ function buildScreen() {
           return `<button class="bp ${build.pick === p ? 'sel' : ''}" data-i="${i}" ${done ? 'disabled' : ''}>
           <div class="bp-av">${Avatar.avatarSVG(p)}</div><div><b>${esc(short(p.name))}</b><small>${p.pos}${bk ? ` · ${bk} <i class="${C.gradeClass(g)}">${g}</i> ${val(bk)}` : ''}</small></div><span class="num">${p.ovr}</span></button>`;
         }).join('')}</div>`}
-        <p class="small" style="color:var(--gold)">${done ? '' : build.pick ? '👈 点左边的一项能力，锁定它' : '👇 先选一名球员，再点左边的能力锁定'}</p>
+        <p class="small" style="color:var(--gold)">${done ? '' : build.pick
+          ? '<span class="wide-only">👈 点左边的一项能力，锁定它</span><span class="narrow-only">👇 点下面的一项能力，锁定它</span>'
+          : '<span class="wide-only">👇 先选一名球员，再点左边的能力锁定</span><span class="narrow-only">先选一名球员，再点下面的能力锁定</span>'}</p>
         ${Object.values(down).some(Boolean) && build.pick ? '<p class="small warn">⚠ 跨位置衰减生效（▼）</p>' : ''}
       </div>
     </div>
@@ -238,13 +240,21 @@ function buildScreen() {
       <button class="btn btn-primary" id="finish">${intro && intro.star ? `完成，空降${esc(C.teamOfStar(starOf(intro.star)).cn)}` : '完成，选一位明星加入他的球队'}</button>` : ''}`;
   document.getElementById('editPos').onclick = () => go(() => createPos(build.pos)); // 改位置 / 名字（问答后默认用了球星的位置）
   if (!done) {
-    app.querySelectorAll('.bp').forEach((b) => (b.onclick = () => { build.pick = build.shown[Number(b.dataset.i)]; buildScreen(); }));
+    // 手机竖屏是上下排（上面挑人、下面能力）：挑好人自动滚到能力格子，锁定后（换下一支队）自动回到上面
+    const narrow = () => window.matchMedia('(max-width:560px)').matches;
+    app.querySelectorAll('.bp').forEach((b) => (b.onclick = () => {
+      build.pick = build.shown[Number(b.dataset.i)];
+      buildScreen();
+      const grid = narrow() && app.querySelector('.bleft');
+      if (grid) grid.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }));
     app.querySelectorAll('.attr.click').forEach((el) => (el.onclick = () => {
       const k = el.dataset.attr;
       if (build.locked[k] || !build.pick) return;
       const d = C.decay(build.pos, build.pick.pos, k);
       build.locked[k] = { v: Math.max(25, C.attrsOf(build.pick)[k] - d), from: build.pick.name, down: d > 0 };
       toast(`锁定 ${k} ${finalVal(k, build.locked[k].v)}（来自 ${short(build.pick.name)}）`);
+      if (narrow() && Object.keys(build.locked).length < C.ATTRS.length) window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
       if (Object.keys(build.locked).length < C.ATTRS.length) spinTeam();
       else { build.pick = null; buildScreen(); }
     }));
@@ -398,8 +408,13 @@ function promoteMe(me, d) {
 // 选完首发选替补：总评不够坐替补席；够了就弹出「获得教练信任」，一键进入首发
 function benchStep(me, star, t, d) {
   const eligible = !d.meStarts && canStart(me, d);
-  const meSlot = `<div class="draw-slot"><small>你 · ${E.POS_LABEL[me.pos]}</small>${tallCard(me, { badge: '你' })}</div>`;
-  const slot = (p, starter) => (p.isMe ? meSlot : `<div class="draw-slot"><small>${E.POS_LABEL[p.pos]}</small>${starter ? rankCard(p, C.cardRank(p.ovr), false) : tallCard(p)}</div>`);
+  // 手机竖屏：一排 5 张的小卡（以前是一排 3 张大卡，12 个人要翻好几屏）；传奇卡、金卡照样有金边和角标
+  const meSlot = miniCard(me);
+  const slot = (p, starter) => {
+    if (p.isMe) return meSlot;
+    const rank = starter ? C.cardRank(p.ovr) : 'normal';
+    return miniCard(p, { rank, badge: RANK_BADGE[rank] || '' });
+  };
   const rival = d.starters.find((p) => p.pos === me.pos && !p.isMe);
   app.innerHTML = `
     <p class="eyebrow">${d.meStarts ? '🔥 首发' : '🪑 替补席'} · ${esc(t.city)}</p>
@@ -410,9 +425,9 @@ function benchStep(me, star, t, d) {
       <button class="btn btn-primary" id="promote">一键进入首发</button>
     </section>` : ''}
     <h3>首发</h3>
-    <div class="draw-row">${d.starters.map((p) => slot(p, true)).join('')}</div>
+    <div class="mgrid">${d.starters.map((p) => slot(p, true)).join('')}</div>
     <h3>替补</h3>
-    <div class="draw-row">
+    <div class="mgrid">
       ${d.meStarts ? '' : meSlot}
       ${d.bench.map((p) => slot(p, false)).join('')}
     </div>
@@ -1587,7 +1602,12 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .hupu h3{margin:6px 0 10px}.hp-c{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}.hp-c small{color:#ff6b5b;white-space:nowrap}.hp-c.me span{color:#f2c94c}
 .xp{display:flex;gap:8px;align-items:center;font-size:12px;margin-top:8px}
 .levelup{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:99;padding:20px}.lu-card{background:#161c2c;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:22px;display:grid;gap:10px;width:min(360px,100%)}
-@media (max-width:560px){.build{grid-template-columns:1fr}}
+.narrow-only{display:none}
+@media (max-width:560px){.build{grid-template-columns:1fr;gap:10px}
+.build .bright{order:-1}.build .attr-grid{grid-template-columns:1fr 1fr;gap:5px}.build .attr{padding:6px 8px;font-size:12.5px;gap:4px}
+.bovr{display:flex;align-items:baseline;justify-content:center;gap:8px;padding:6px}.bovr b{display:inline;font-size:22px}
+.spin{font-size:20px;padding:8px;margin:6px 0}.bp{grid-template-columns:34px 1fr auto;padding:4px 8px}.bp-av{width:34px;height:34px}.bp span{font-size:18px}
+.wide-only{display:none}.narrow-only{display:inline}}
 .origin{display:grid;grid-template-columns:52px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;padding:18px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface)}
 .origin .oi{grid-row:1/3;font-size:36px;text-align:center}.origin b{font-size:18px}.origin small{color:var(--muted)}.origin:hover{border-color:var(--accent)}
 .quiz{display:grid;gap:8px}.qa-style{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center;padding:10px 12px}.qa-av{width:44px;height:44px;border-radius:50%;overflow:hidden;background:#fff}.qa-av svg{width:100%;height:100%}.qa-t small{display:block;margin-top:3px;color:var(--gold);font-size:12px}.link-btn{background:none;border:0;color:#9fb0ff;text-decoration:underline;font-size:12px;cursor:pointer;padding:0 2px}.qa{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);text-align:left;font-size:15px}.qa:hover{border-color:var(--accent);background:rgba(242,140,40,.12)}
@@ -1813,6 +1833,8 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .mc-me{position:absolute;bottom:21px;right:3px;z-index:2;font-size:9px;font-weight:800;padding:0 4px;border-radius:4px;background:var(--accent);color:#1A0E02}
 .mc-name{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:3px 2px 4px;background:rgba(5,8,15,.88);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mcard.me{border-color:var(--accent)}
+.mc-badge{position:absolute;top:18px;right:3px;z-index:2;font-size:9px;font-weight:800;line-height:1.5;padding:0 4px;border-radius:4px;background:var(--gold);color:#1A0E02}
+.mcard.rank-legend{border:2px solid #FFD54A;box-shadow:0 0 10px rgba(255,213,74,.5)}.mcard.rank-gold{border:2px solid #E8B64C}
 .mcard.sel{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 14px rgba(242,193,78,.4)}
 #myFive{cursor:pointer}
 /* 比赛页 */
