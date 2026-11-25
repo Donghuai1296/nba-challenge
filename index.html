@@ -297,6 +297,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dp-first { font-size: 13px; color: #C9D2E3; }
 .dp-last { font-size: 24px; font-weight: 900; line-height: 1.15; }
 .sticky-cta { position: sticky; bottom: max(10px, env(safe-area-inset-bottom)); z-index: 5; box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
+/* 浮在内容上面的按钮没激活时不能半透明（会透出底下的卡片，看着乱），改成不透明的灰底 */
+.sticky-cta:disabled { opacity: 1; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
 
 /* 抽卡卡面：2K 卡样式 + 稀有度边框 */
 .gcard .front { display: block; padding: 0; background: #070A12; }
