@@ -74,7 +74,7 @@
   // 不在表里的多冠球员：统一取他各个夺冠赛季里最高的那个
   const bestSeason = {};
   for (const c of RAW_CHAMPIONS) for (const p of c.roster) bestSeason[p.name] = Math.max(bestSeason[p.name] || 0, Math.min(99, p.ovr + CHAMP_BOOST));
-  const champOvr = (name) => LEGACY[name] ?? bestSeason[name];
+  const champOvr = (name) => (LEGACY[name] != null ? LEGACY[name] : bestSeason[name]);
   const CHAMPIONS = RAW_CHAMPIONS.map((c) => ({
     ...c,
     roster: c.roster.map((p, i) => ({ ...p, ovr: champOvr(p.name), pos: i < 5 ? POS[i] : posOf(p.name) })),
@@ -844,7 +844,7 @@
     // 带 q 的播报固定放在那一节，其余随机放
     // pre：赛前播报（羁绊），放在开场两队首发介绍之后、第一节开始之前
     const preNotes = (extra.notes || []).filter((n) => n.pre);
-    for (const n of (extra.notes || []).filter((x) => !x.pre)) items.push({ q: n.q ?? Math.floor(rand() * 4), evs: [n], fixed: true });
+    for (const n of (extra.notes || []).filter((x) => !x.pre)) items.push({ q: n.q != null ? n.q : Math.floor(rand() * 4), evs: [n], fixed: true });
     // 分到四节：每队的得分回合、其他回合分别打乱后轮流分配，每节比分不会太悬殊
     for (let t = 0; t < 2; t++) for (const scoring of [true, false]) {
       const group = shuffle(items.filter((x) => !x.fixed && x.evs.some((e) => e.side === t && e.pts) === scoring && x.evs[x.evs.length - 1].side === t), rand);

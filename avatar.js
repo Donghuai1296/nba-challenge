@@ -22,7 +22,7 @@
     const year = p.from && p.from !== '现役' ? Number(p.season) : null;
     if (year) return { kit: D.CHAMP_KITS[year] || DEFAULT_KIT, num: champNum(p.name, year), look: D.LOOKS[`${p.name}@${year}`] || D.LOOKS[p.name] || {}, key: `${p.name}@${year}` };
     const team = p.team || D.CURRENT_TEAM[p.name];
-    return { kit: D.TEAM_KITS[team] || DEFAULT_KIT, num: p.num ?? D.NUMBERS[p.name], look: D.LOOKS[p.name] || {}, key: `${p.name}|${team || ''}` };
+    return { kit: D.TEAM_KITS[team] || DEFAULT_KIT, num: p.num != null ? p.num : D.NUMBERS[p.name], look: D.LOOKS[p.name] || {}, key: `${p.name}|${team || ''}` };
   }
 
   // 外号造型（按球员名字，所有赛季的卡都适用）
@@ -408,7 +408,7 @@
   if (typeof document !== 'undefined') {
     const st = document.createElement('style');
     st.textContent = '.hp-ph{position:relative;display:block;width:100%;height:100%;overflow:hidden}.hp-ph>svg{width:100%;height:100%;display:block;visibility:hidden}' +
-      '.hp-ph.fail>svg{visibility:visible}.hp-ph>.hp-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%}' +
+      '.hp-ph.fail>svg{visibility:visible}.hp-ph>.hp-photo{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;object-position:50% 12%}' +
       // 虎扑抠图是 569×320 的横图、人在正中间：卡片人像框都是竖的，按高度铺满（裁掉两边透明的部分），人才够大
       '.hp-ph.bare>.hp-photo{object-fit:cover;object-position:50% 100%}' +
       // 方形老照片：铺满、对准脸，卡片里底部渐隐进名字栏

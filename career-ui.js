@@ -132,7 +132,7 @@ function createPos(sel = null) {
     <div class="spread"><h2>选择我的位置</h2><button class="muted small" id="back">返回</button></div>
     <p class="muted small">你会成为一名新秀，加入一位明星所在的球队。</p>
     ${h ? `<p class="small hidden-chip">你的打法：${h.attr} ${h.v}（和${esc(h.nick)}一样）· 推荐位置：${E.POS_LABEL[h.pos]}</p>` : ''}
-    <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" value="${esc(store.get('nba-myname-draft', null) ?? store.get('nba-myname', ''))}">
+    <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" value="${esc(store.get('nba-myname-draft', store.get('nba-myname', '')))}">
     <div class="pos-pick">${E.POS.map((p) => `<button class="pos-btn ${sel === p ? 'sel' : ''}" data-p="${p}">${posCourt(p)}
       <span class="pos-txt"><b>${E.POS_LABEL[p]}<em>${p}</em></b><small>${POS_ROLE[p]}</small></span>${h && h.pos === p ? '<i class="pos-rec">推荐</i>' : ''}</button>`).join('')}</div>
     <button class="btn btn-primary sticky-cta" id="ok" ${sel ? '' : 'disabled'}>确认位置</button>`;
@@ -208,7 +208,7 @@ function buildScreen() {
     <div class="bprog"><div class="bar"><i style="width:${(n / C.ATTRS.length) * 100}%"></i></div><b class="num">${n}/${C.ATTRS.length}</b></div>
     <div class="build">
       <div class="bleft">
-        <div class="bovr"><b class="num">${ovr ?? '--'}</b><span>OVR</span></div>
+        <div class="bovr"><b class="num">${ovr != null ? ovr : '--'}</b><span>OVR</span></div>
         ${attrGrid(null, { values: vals, down, locked: build.locked, clickable: !!build.pick })}
       </div>
       <div class="bright">
@@ -598,7 +598,7 @@ showResult = function (r) {
     </div>` : '<p class="muted small">本场未上场</p>'}
     ${trig.length ? `<div class="pas-hit">${trig.map((p) => `⚡ 触发被动【${esc(p.name)}】`).join('　')}</div>` : ''}
     <table class="mystat"><thead><tr><th></th><th>时间</th><th>分</th><th>板</th><th>助</th><th>断</th><th>帽</th><th>失误</th></tr></thead><tbody>
-      <tr><td>本场</td>${row && row.min ? ['min', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov'].map((k) => `<td class="num">${row[k] ?? 0}</td>`).join('') : '<td colspan="7">未上场</td>'}</tr>
+      <tr><td>本场</td>${row && row.min ? ['min', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov'].map((k) => `<td class="num">${row[k] != null ? row[k] : 0}</td>`).join('') : '<td colspan="7">未上场</td>'}</tr>
       <tr><td>场均（${st.g} 场）</td>${['min', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov'].map((k) => `<td class="num">${avg(k)}</td>`).join('')}</tr>
     </tbody></table>
     ${row && row.min && row.fg2a != null ? `<p class="shot-line"><b>本场投篮</b>${shotLine(row)}<br><b>生涯命中率</b>${careerShot(st)}</p>` : ''}
@@ -1264,7 +1264,7 @@ hub = function () {
       <div class="mgrid">${oppFive.map((x) => miniCard(x)).join('')}</div>
       <details class="opp-bench"><summary class="muted small">对手替补 7 人（均分 ${fmt1(benchAvg(L.roster))}）</summary>
         <div class="mgrid">${L.roster.slice(5).map((x) => miniCard(x)).join('')}</div></details>
-      <div class="stat-grid">
+      <div class="stat-grid${L.bond ? ' has-bond' : ''}">
         <div><b>${fmt1(L.raw)}</b><span>阵容实力</span></div>
         <div><b>${L.boost >= 0 ? '+' : ''}${fmt1(L.boost)}</b><span>${run.level === TOTAL - 1 ? '72 胜光环' : L.boost < 0 ? '赛季初状态' : '状态加成'}</span></div>
         ${L.bond ? `<div class="bond-stat"><b>+${fmt1(L.bondPower)}</b><span>🔗 羁绊</span></div>` : ''}
@@ -1415,7 +1415,7 @@ myTeam = function () {
   if (!run.career) return _myTeam();
   const team = withBond(run.team);
   const bd = bondOf(run.team);
-  const focusI = swapPick ?? Math.max(0, team.findIndex((p) => p.isMe));
+  const focusI = swapPick != null ? swapPick : Math.max(0, team.findIndex((p) => p.isMe));
   const card = (p, i) => miniCard(p, { button: true, sel: swapPick === i, attrs: `data-swap="${i}"` });
   app.innerHTML = `
     ${statusBar()}
@@ -1586,7 +1586,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .statline{display:grid;gap:2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);margin:10px 0}.statline span{font-size:12px;color:#9aa4b8}.statline b{font-size:18px}.statline small{color:#9aa4b8}.statline.gold{background:rgba(242,201,76,.12)}
 .hupu h3{margin:6px 0 10px}.hp-c{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08)}.hp-c small{color:#ff6b5b;white-space:nowrap}.hp-c.me span{color:#f2c94c}
 .xp{display:flex;gap:8px;align-items:center;font-size:12px;margin-top:8px}
-.levelup{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:99;padding:20px}.lu-card{background:#161c2c;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:22px;display:grid;gap:10px;width:min(360px,100%)}
+.levelup{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:99;padding:20px}.lu-card{background:#161c2c;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:22px;display:grid;gap:10px;width:min(360px,100%)}
 @media (max-width:560px){.build{grid-template-columns:1fr}}
 .origin{display:grid;grid-template-columns:52px 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;padding:18px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface)}
 .origin .oi{grid-row:1/3;font-size:36px;text-align:center}.origin b{font-size:18px}.origin small{color:var(--muted)}.origin:hover{border-color:var(--accent)}
@@ -1603,8 +1603,8 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 @keyframes flashLegend{0%{box-shadow:0 0 0 rgba(255,213,74,0);filter:brightness(1)}25%{box-shadow:0 0 40px 12px rgba(255,213,74,.95);filter:brightness(1.8)}100%{box-shadow:0 0 14px rgba(255,213,74,.55);filter:brightness(1)}}
 @keyframes flashGold{0%{filter:brightness(1)}40%{box-shadow:0 0 26px 6px rgba(232,182,76,.85);filter:brightness(1.6)}100%{filter:brightness(1)}}
 @media (prefers-reduced-motion:reduce){.tcard.flash-legend,.tcard.flash-gold{animation:none}}
-.walkout{position:fixed;inset:0;z-index:50;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--c1) 55%,#000) 0%,#05070d 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden;cursor:pointer;color:#fff;text-align:center}
-.wo-rays{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg,rgba(255,213,74,.22) 0 6deg,transparent 6deg 18deg);animation:woSpin 6s linear infinite,woFade .6s ease-out;pointer-events:none}
+.walkout{position:fixed;top:0;right:0;bottom:0;left:0;z-index:50;background:radial-gradient(circle at 50% 45%,var(--c1) 0%,#05070d 70%);background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--c1) 55%,#000) 0%,#05070d 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden;cursor:pointer;color:#fff;text-align:center}
+.wo-rays{position:absolute;top:-50%;right:-50%;bottom:-50%;left:-50%;background:repeating-conic-gradient(from 0deg,rgba(255,213,74,.22) 0 6deg,transparent 6deg 18deg);animation:woSpin 6s linear infinite,woFade .6s ease-out;pointer-events:none}
 .wo-step{opacity:0;transform:translateY(16px) scale(.9);transition:opacity .3s,transform .3s;position:relative}.wo-step.on{opacity:1;transform:none}
 .wo-year{font-size:64px;font-weight:900;letter-spacing:4px;color:#FFD54A;text-shadow:0 0 24px rgba(255,213,74,.8)}
 .wo-pos{font-size:28px;font-weight:900;letter-spacing:8px}
@@ -1614,9 +1614,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 /* 出场特效（2K 味道）：s1 号码闪进 → s2 位置闪进 → s3 冲散、大屏暗下、顶部号码|位置 + 球队 → s4 球员卡亮起 */
 .walkout.wo4{display:block;background:#070A12;text-align:center}
 /* LED 大屏：球队主色 + 点阵 + 四周压暗，开场闪一下 */
-.wo4 .w4-led{position:absolute;inset:0;opacity:0;
-  background:radial-gradient(ellipse at 50% 45%,transparent 35%,rgba(0,0,0,.5) 100%),linear-gradient(180deg,color-mix(in srgb,var(--c1) 85%,#fff) 0%,var(--c1) 45%,color-mix(in srgb,var(--c1) 70%,#000) 100%)}
-.wo4 .w4-led::after{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(0,0,0,.3) 1px,transparent 1.4px);background-size:4px 4px}
+.wo4 .w4-led{position:absolute;top:0;right:0;bottom:0;left:0;opacity:0;
+  background:radial-gradient(ellipse at 50% 45%,transparent 35%,rgba(0,0,0,.5) 100%),linear-gradient(180deg,var(--c1) 0%,var(--c1) 45%,var(--c1) 100%);background:radial-gradient(ellipse at 50% 45%,transparent 35%,rgba(0,0,0,.5) 100%),linear-gradient(180deg,color-mix(in srgb,var(--c1) 85%,#fff) 0%,var(--c1) 45%,color-mix(in srgb,var(--c1) 70%,#000) 100%)}
+.wo4 .w4-led::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background-image:radial-gradient(rgba(0,0,0,.3) 1px,transparent 1.4px);background-size:4px 4px}
 .wo4.s1 .w4-led{opacity:1;animation:w4Pulse .45s ease-out}
 .wo4.s2 .w4-led{animation:w4Pulse2 .35s ease-out}
 @keyframes w4Pulse{0%{filter:brightness(2.2)}100%{filter:brightness(1)}}
@@ -1637,23 +1637,23 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 /* 冲向屏幕散开 */
 .wo4.s3 .w4-num,.wo4.s3 .w4-pos{opacity:0;transform:scale(1.6);transition:opacity .25s ease-in,transform .3s ease-in}
 /* 大屏暗下来：深色底 + 球队主色光晕 */
-.wo4 .w4-dark{position:absolute;inset:0;opacity:0;transition:opacity .35s ease-out;
-  background:radial-gradient(circle at 50% 52%,color-mix(in srgb,var(--c1) 65%,transparent) 0%,color-mix(in srgb,var(--c1) 20%,transparent) 36%,transparent 62%),#070A12}
+.wo4 .w4-dark{position:absolute;top:0;right:0;bottom:0;left:0;opacity:0;transition:opacity .35s ease-out;
+  background:radial-gradient(circle at 50% 52%,var(--c1) 0%,transparent 36%,transparent 62%),#070A12;background:radial-gradient(circle at 50% 52%,color-mix(in srgb,var(--c1) 65%,transparent) 0%,color-mix(in srgb,var(--c1) 20%,transparent) 36%,transparent 62%),#070A12}
 .wo4.s3 .w4-dark{opacity:1}
 /* 顶部小号码 | 位置 + 球队 */
 .wo4 .w4-top{position:absolute;left:0;right:0;top:6%;display:flex;justify-content:center;align-items:center;gap:16px;opacity:0;transform:translateY(-10px);transition:opacity .35s ease-out,transform .35s ease-out}
-.wo4 .w4-top span{font:italic 900 46px/1 Bahnschrift,'Arial Black',sans-serif;color:#fff;text-shadow:0 0 20px color-mix(in srgb,var(--c1) 80%,transparent)}
+.wo4 .w4-top span{font:italic 900 46px/1 Bahnschrift,'Arial Black',sans-serif;color:#fff;text-shadow:0 0 20px var(--c1);text-shadow:0 0 20px color-mix(in srgb,var(--c1) 80%,transparent)}
 .wo4 .w4-top i{width:2px;height:40px;background:linear-gradient(transparent,rgba(255,255,255,.6),transparent)}
 .wo4 .w4-team{position:absolute;left:0;right:0;top:14%;font-size:17px;font-weight:900;letter-spacing:.18em;color:#fff;opacity:0;transform:translateY(-6px);transition:opacity .35s ease-out .1s,transform .35s ease-out .1s}
 .wo4 .w4-team::after{content:"";display:block;width:56px;height:3px;margin:8px auto 0;border-radius:3px;background:var(--c1);box-shadow:0 0 12px var(--c1)}
 .wo4.s3 .w4-top,.wo4.s3 .w4-team{opacity:1;transform:none}
 /* 球员卡亮起 */
 .wo4 .w4-card{position:absolute;left:50%;top:52%;width:min(58vw,244px);opacity:0;transform:translate(-50%,-44%) scale(.94);
-  transition:opacity .4s ease-out,transform .5s cubic-bezier(.2,.8,.3,1);filter:drop-shadow(0 0 26px color-mix(in srgb,var(--c1) 75%,transparent))}
+  transition:opacity .4s ease-out,transform .5s cubic-bezier(.2,.8,.3,1);filter:drop-shadow(0 0 26px var(--c1));filter:drop-shadow(0 0 26px color-mix(in srgb,var(--c1) 75%,transparent))}
 .wo4 .w4-card .tcard{width:100%;max-width:none;flex:none}
 .wo4.s4 .w4-card{opacity:1;transform:translate(-50%,-50%)}
 /* s5：球星卡原地闪亮 0.2 秒——亮度一跳 + 金光 + 一道斜光扫过卡面 */
-.wo4 .w4-card::after{content:"";position:absolute;inset:0;border-radius:14px;pointer-events:none;opacity:0;
+.wo4 .w4-card::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:14px;pointer-events:none;opacity:0;
   background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.8) 50%,transparent 70%);background-size:260% 100%;background-position:110% 0}
 .wo4.s5 .w4-card::after{animation:w4Shine .2s ease-out}
 .wo4.s5 .w4-card .tcard{animation:w4Glint .2s ease-out}
@@ -1719,11 +1719,11 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .dc-pack.dim i{filter:grayscale(1) brightness(.45)}
 @keyframes packIn{from{opacity:0;transform:translateY(40px) rotate(0)}}
 @keyframes packGlow{50%{box-shadow:0 0 26px 6px rgba(242,193,78,.65)}}
-.gacha.inpage{position:relative;inset:auto;z-index:auto;min-height:520px;border-radius:20px;padding:16px 10px 18px;align-content:start}
+.gacha.inpage{position:relative;top:auto;right:auto;bottom:auto;left:auto;z-index:auto;min-height:520px;border-radius:20px;padding:16px 10px 18px;align-content:start}
 .gacha.inpage .deck.many{grid-template-columns:repeat(var(--cols),minmax(0,1fr));width:100%;gap:6px}
 @media (prefers-reduced-motion:reduce){.line-in,.dc-pack i{animation:none!important}}
-.mp-canvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
-.mp-flash{position:fixed;inset:0;pointer-events:none;z-index:59;background:radial-gradient(circle at 50% 40%,rgba(255,213,74,.75),rgba(255,213,74,0) 65%);animation:flash 1.1s ease-out forwards}
+.mp-canvas{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100%;pointer-events:none;z-index:60}
+.mp-flash{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:59;background:radial-gradient(circle at 50% 40%,rgba(255,213,74,.75),rgba(255,213,74,0) 65%);animation:flash 1.1s ease-out forwards}
 @keyframes mBreath{0%,100%{transform:none;filter:brightness(1)}50%{transform:translateY(-3px);filter:brightness(1.25)}}
 @keyframes mShine{0%,55%{transform:translateX(0)}100%{transform:translateX(150px)}}
 @keyframes mOut{to{transform:rotateY(450deg) scale(1.15)}}
@@ -1749,7 +1749,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .al-b:disabled{opacity:.28;cursor:default}
 .al-act{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .al-proj{margin:0;line-height:1.6}.al-proj em{color:#ff8a4a;font-style:normal}
-.stat-grid:has(.bond-stat){grid-template-columns:repeat(4,1fr)}
+.stat-grid.has-bond{grid-template-columns:repeat(4,1fr)}
 .stat-grid .bond-stat{background:rgba(255,213,74,.12);box-shadow:inset 0 0 0 1px rgba(255,213,74,.45)}.stat-grid .bond-stat b{color:#FFD54A}
 .bond-opp{margin:8px 0 0;color:#FFB4A2}
 .tc-bond{display:inline-block;margin-top:2px;padding:0 4px;border-radius:4px;background:#FFD54A;color:#1A0E02;font:800 10px/1.4 var(--num);text-shadow:none}.bond-plus{color:#FFD54A;font-size:11px}
@@ -1804,7 +1804,7 @@ body.has-nav .toast{bottom:calc(80px + env(safe-area-inset-bottom))}
 body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 /* 小号竖卡：一排 5 张 */
 .mgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-.mcard{--c1:#3A4766;position:relative;display:block;width:100%;aspect-ratio:3/4.1;border-radius:9px;overflow:hidden;padding:0;border:1.5px solid rgba(255,255,255,.1);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 75%,#000),#070A12 88%);color:inherit;font:inherit;text-align:center}
+.mcard{--c1:#3A4766;position:relative;display:block;width:100%;aspect-ratio:3/4.1;border-radius:9px;overflow:hidden;padding:0;border:1.5px solid rgba(255,255,255,.1);background:linear-gradient(180deg,var(--c1),#070A12 88%);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 75%,#000),#070A12 88%);color:inherit;font:inherit;text-align:center}
 .mc-fig{position:absolute;left:0;right:0;top:15%;bottom:19%}
 .mc-fig svg{width:100%;height:100%;display:block}
 .mc-ovr{position:absolute;top:3px;left:4px;z-index:2;font:800 15px/1 var(--num);text-shadow:0 1px 3px #000}
@@ -1830,10 +1830,10 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .ladder.mini .node.boss{border-color:var(--gold);border-width:1.5px;font-family:var(--display);font-size:14px;color:var(--gold);background:linear-gradient(180deg,#3A2A0C,#241A08)}
 .ladder.mini .node.boss.cur{background:var(--accent);color:var(--accent-ink)}.ladder.mini .node.boss.done{background:#1E3A2C;color:var(--win)}
 /* Boss 登场：全屏压暗 + 巨字砸下 + 白闪 + 震屏，头像、名字、技能依次亮出 */
-.boss-intro{position:fixed;inset:0;z-index:80;display:grid;place-items:center;overflow:hidden;cursor:pointer;background:radial-gradient(circle at 50% 42%,#4A1608 0%,#170704 55%,#050203 100%);animation:bi-in .2s ease-out,bi-shake .45s .25s}
+.boss-intro{position:fixed;top:0;right:0;bottom:0;left:0;z-index:80;display:grid;place-items:center;overflow:hidden;cursor:pointer;background:radial-gradient(circle at 50% 42%,#4A1608 0%,#170704 55%,#050203 100%);animation:bi-in .2s ease-out,bi-shake .45s .25s}
 .boss-intro.out{animation:bi-out .26s ease-in forwards}
 .bi-glyph{position:absolute;font-family:var(--display);font-size:min(92vw,440px);line-height:1;color:rgba(255,213,74,.16);text-shadow:0 0 60px rgba(255,120,40,.35);animation:bi-glyph .55s cubic-bezier(.2,1.4,.4,1) both}
-.bi-flash{position:absolute;inset:0;background:#FFF2C8;opacity:0;animation:bi-flash .5s .18s ease-out}
+.bi-flash{position:absolute;top:0;right:0;bottom:0;left:0;background:#FFF2C8;opacity:0;animation:bi-flash .5s .18s ease-out}
 .bi-core{position:relative;display:grid;justify-items:center;gap:8px;text-align:center;padding:0 20px}
 .bi-tag{font-family:var(--display);font-size:16px;letter-spacing:.25em;color:#FF6B5B;animation:bi-blink .6s steps(2) 3}
 .bi-av{width:124px;height:124px;border-radius:50%;overflow:hidden;background:#fff;border:3px solid #FFD54A;box-shadow:0 0 0 6px rgba(255,213,74,.15),0 0 50px rgba(255,180,60,.65);animation:bi-pop .5s .3s cubic-bezier(.2,1.6,.4,1) both}
@@ -1849,8 +1849,8 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 @keyframes bi-pop{from{transform:scale(.3);opacity:0}}
 @keyframes bi-up{from{transform:translateY(14px);opacity:0}}
 /* Boss 技能发动：屏幕四周红光一闪 + 顶部弹出横条 */
-.skill-fx{position:fixed;inset:0;z-index:75;pointer-events:none}
-.sf-edge{position:absolute;inset:0;box-shadow:inset 0 0 80px 20px rgba(255,60,40,.55);animation:sf-edge 1.8s ease-out forwards}
+.skill-fx{position:fixed;top:0;right:0;bottom:0;left:0;z-index:75;pointer-events:none}
+.sf-edge{position:absolute;top:0;right:0;bottom:0;left:0;box-shadow:inset 0 0 80px 20px rgba(255,60,40,.55);animation:sf-edge 1.8s ease-out forwards}
 .sf-bar{position:absolute;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 18px 8px 10px;border-radius:14px;white-space:nowrap;background:linear-gradient(100deg,#5A1408,#2A0A06);border:1.5px solid #FFD54A;box-shadow:0 8px 30px rgba(255,80,40,.5);animation:sf-bar 1.8s cubic-bezier(.2,1.3,.4,1) forwards}
 .sf-glyph{font-family:var(--display);font-size:34px;line-height:1;color:#FFD54A;text-shadow:0 0 16px rgba(255,200,80,.7)}
 .sf-bar small{display:block;font-size:11px;color:#FFB4A8;letter-spacing:.1em}.sf-bar b{display:block;font-family:var(--display);font-size:20px;color:#fff}
@@ -1895,12 +1895,12 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .mb-item em{font-style:normal;font-size:12px;color:#C9D2E3}
 /* 造型页：上面大卡预览，下面 15 张小卡自己选 */
 .look-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-.look-thumb{--c1:#3A4766;position:relative;display:block;width:100%;aspect-ratio:3/3.9;border-radius:9px;overflow:hidden;padding:0;border:1.5px solid rgba(255,255,255,.1);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 70%,#000),#070A12 92%);color:inherit;font:inherit}
+.look-thumb{--c1:#3A4766;position:relative;display:block;width:100%;aspect-ratio:3/3.9;border-radius:9px;overflow:hidden;padding:0;border:1.5px solid rgba(255,255,255,.1);background:linear-gradient(180deg,var(--c1),#070A12 92%);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 70%,#000),#070A12 92%);color:inherit;font:inherit}
 .look-thumb>svg{position:absolute;left:0;top:3%;width:100%;height:80%}
 .look-thumb span{position:absolute;left:0;right:0;bottom:0;padding:2px 1px 3px;font-size:10.5px;text-align:center;background:rgba(5,8,15,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .look-thumb.sel{border-color:#FFD54A;box-shadow:0 0 0 2px #FFD54A,0 0 12px rgba(255,213,74,.4)}.look-thumb.sel span{color:#FFD54A;font-weight:800}
 .look-stage{display:flex;justify-content:center;padding:2px 0}
-.look-card{--c1:#3A4766;position:relative;width:min(50vw,200px);aspect-ratio:3/4.1;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 78%,#000),#070A12 88%);border:2px solid rgba(255,255,255,.12)}
+.look-card{--c1:#3A4766;position:relative;width:min(50vw,200px);aspect-ratio:3/4.1;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,var(--c1),#070A12 88%);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 78%,#000),#070A12 88%);border:2px solid rgba(255,255,255,.12)}
 .look-card>svg{position:absolute;left:0;top:6%;width:100%;height:78%}
 .look-card.done{border-color:#FFD54A;box-shadow:0 0 0 3px rgba(255,213,74,.25),0 0 34px rgba(255,213,74,.4);animation:lc-pop .4s cubic-bezier(.2,1.6,.4,1)}
 .lc-name{position:absolute;left:0;right:0;bottom:0;padding:8px 6px 10px;text-align:center;background:rgba(5,8,15,.9)}

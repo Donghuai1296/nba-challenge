@@ -166,7 +166,7 @@ function rosterHtml(team0, opts = {}) {
     badge: isCore(p) ? '核心' : '', // 羁绊加成显示在右上角号码、位置下面（tc-bond），不放在头像旁边
     attrs: opts.editable ? `data-swap="${i}"` : '',
   });
-  const focus = team[swapPick ?? 0];
+  const focus = team[swapPick != null ? swapPick : 0];
   return `
     ${detailPanel(focus, isCore(focus) ? '核心球星' : '')}
     <div class="spread"><h3>首发</h3><span class="muted small num">均分 ${fmt1(starterAvg(team))}</span></div>
@@ -246,6 +246,12 @@ function toast(msg) {
   const t = document.createElement('div');
   t.className = 'toast';
   t.textContent = msg;
+  // 页面底部有固定按钮（「确认位置」这类 sticky-cta）时，提示放到按钮上面，不然会被挡住（起名没通过的提示就看不到）
+  const cta = document.querySelector('.sticky-cta');
+  if (cta) {
+    const r = cta.getBoundingClientRect();
+    if (r.height && r.top < window.innerHeight) t.style.bottom = `${Math.round(window.innerHeight - r.top + 12)}px`;
+  }
   document.body.append(t);
   setTimeout(() => t.remove(), 1800);
 }
@@ -631,7 +637,7 @@ function hub() {
       <details><summary class="muted small" style="cursor:pointer">替补 7 人（均分 ${fmt1(benchAvg(L.roster))}）</summary>
         <div class="trow bench" style="margin-top:8px">${L.roster.slice(5).map((x) => tallCard(x)).join('')}</div>
       </details>
-      <div class="stat-grid">
+      <div class="stat-grid${L.bond ? ' has-bond' : ''}">
         <div><b>${fmt1(L.raw)}</b><span>阵容实力</span></div>
         <div><b>${L.boost >= 0 ? '+' : ''}${fmt1(L.boost)}</b><span>${run.level === TOTAL - 1 ? '72 胜光环' : L.boost < 0 ? '赛季初状态' : '状态加成'}</span></div>
         ${L.bond ? `<div class="bond-stat"><b>+${fmt1(L.bondPower)}</b><span>🔗 羁绊</span></div>` : ''}
@@ -905,11 +911,13 @@ function boxTable(rows) {
   const dup = new Set(rows.map(shortOf).filter((s, i, a) => a.indexOf(s) !== i));
   const nameOf = (x) => (dup.has(shortOf(x)) && x.name.includes('·') ? `${x.name[0]}·${shortOf(x)}` : shortOf(x));
   const has = rows.some((x) => x.fg2a != null);
-  const shoot = (x) => (has ? `<td class="sh">${x.fg2m ?? 0}-${x.fg2a ?? 0}</td><td class="sh">${x.fg3m ?? 0}-${x.fg3a ?? 0}</td><td class="sh">${x.ftm ?? 0}-${x.fta ?? 0}</td>` : '');
+  // 不用空值合并、可选链这类新语法：老手机（安卓内核 80 以前、iOS 13.4 以前）认不出，整个脚本会白屏
+  const n0 = (v) => (v != null ? v : 0);
+  const shoot = (x) => (has ? `<td class="sh">${n0(x.fg2m)}-${n0(x.fg2a)}</td><td class="sh">${n0(x.fg3m)}-${n0(x.fg3a)}</td><td class="sh">${n0(x.ftm)}-${n0(x.fta)}</td>` : '');
   const cols = has ? 11 : 8;
   // 列的顺序：分 板 助 2分 3分 罚球 断 帽 失误 时间（手机上不用滑就能看到前面 6 列）
   const line = (x) => x.min
-    ? `<tr class="${x === mvp ? 'mvp' : ''} ${x.me ? 'me' : ''}"><td>${x.me ? '⭐' : ''}${esc(nameOf(x))}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td>${shoot(x)}<td>${x.stl}</td><td>${x.blk}</td><td>${x.tov ?? '-'}</td><td>${x.min}</td></tr>`
+    ? `<tr class="${x === mvp ? 'mvp' : ''} ${x.me ? 'me' : ''}"><td>${x.me ? '⭐' : ''}${esc(nameOf(x))}</td><td>${x.pts}</td><td>${x.reb}</td><td>${x.ast}</td>${shoot(x)}<td>${x.stl}</td><td>${x.blk}</td><td>${x.tov != null ? x.tov : '-'}</td><td>${x.min}</td></tr>`
     : `<tr class="muted"><td>${esc(nameOf(x))}</td><td colspan="${cols - 1}" style="text-align:center">未上场</td></tr>`;
   const sep = (t) => `<tr><td colspan="${cols}" class="muted small" style="padding-top:8px">${t}</td></tr>`;
   const sum = (k) => rows.reduce((s, x) => s + (x.min ? x[k] || 0 : 0), 0);

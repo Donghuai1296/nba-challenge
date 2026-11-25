@@ -158,7 +158,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .diff-up { color: var(--win); font-weight: 700; }
 .diff-down { color: var(--lose); font-weight: 700; }
 .note { font-size: 12px; color: var(--muted); }
-.toast { position: fixed; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; font-size: 13.5px; }
+.toast { position: fixed; z-index: 200; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); text-align: center; background: var(--surface-2); border: 1px solid var(--line); padding: 8px 14px; border-radius: 10px; font-size: 13.5px; box-shadow: 0 6px 20px rgba(0, 0, 0, .45); }
 @media (prefers-reduced-motion: no-preference) {
   .pop { animation: pop 0.35s ease-out; }
   @keyframes pop { from { transform: scale(0.96); opacity: 0.4; } to { transform: none; opacity: 1; } }
@@ -166,7 +166,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- 抽卡 ---------- */
 .gacha {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; top:0;right:0;bottom:0;left:0; z-index: 50;
   background: radial-gradient(ellipse at 50% 40%, #1C2846 0%, #070B14 75%);
   display: grid; grid-template-rows: auto 1fr auto; gap: 12px;
   padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
@@ -176,8 +176,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @keyframes shake { 0%,100% { transform: none; } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -4px); } 60% { transform: translate(-4px, -2px); } 80% { transform: translate(3px, 3px); } }
 .gacha h2 { text-align: center; font-size: 20px; letter-spacing: 0.12em; }
 .gacha .sub { text-align: center; color: var(--muted); font-size: 13px; }
-.gacha canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.gacha .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.gacha canvas { position: absolute; top:0;right:0;bottom:0;left:0; width: 100%; height: 100%; pointer-events: none; }
+.gacha .flash { position: absolute; top:0;right:0;bottom:0;left:0; background: #fff; opacity: 0; pointer-events: none; }
 .gacha .flash.on { animation: flash 0.45s ease-out; }
 @keyframes flash { 0% { opacity: 0.75; } 100% { opacity: 0; } }
 .gacha .actions { display: grid; gap: 10px; max-width: 480px; width: 100%; margin: 0 auto; position: relative; z-index: 2; }
@@ -186,7 +186,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gcard.dealt { opacity: 1; transform: none; transition: transform 0.55s cubic-bezier(.2,.9,.25,1.15), opacity 0.3s; }
 .gcard .inner { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(.3,.7,.2,1.1); }
 .gcard.flipped .inner { transform: rotateY(180deg); }
-.gcard .face { position: absolute; inset: 0; border-radius: 14px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
+.gcard .face { position: absolute; top:0;right:0;bottom:0;left:0; border-radius: 14px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
 /* 卡背：篮球纹路 */
 .gcard .back {
   background:
@@ -197,7 +197,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 3px solid #2A1606;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
-.gcard .back::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; font: 900 46px var(--num); color: rgba(26,14,2,0.55); }
+.gcard .back::after { content: "?"; position: absolute; top:0;right:0;bottom:0;left:0; display: grid; place-items: center; font: 900 46px var(--num); color: rgba(26,14,2,0.55); }
 .gcard.charge .back { animation: charge var(--charge, 0.6s) ease-in forwards; }
 @keyframes charge {
   0% { box-shadow: 0 0 0 0 var(--rc); transform: scale(1); }
@@ -208,17 +208,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 卡面 */
 .gcard .front {
   transform: rotateY(180deg);
-  background: linear-gradient(160deg, color-mix(in srgb, var(--rc) 38%, #121A2C) 0%, #121A2C 60%);
+  background: linear-gradient(160deg, #121A2C 0%, #121A2C 60%);background: linear-gradient(160deg, color-mix(in srgb, var(--rc) 38%, #121A2C) 0%, #121A2C 60%);
   border: 3px solid var(--rc);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--rc) 60%, transparent);
+  box-shadow: 0 0 24px var(--rc);box-shadow: 0 0 24px color-mix(in srgb, var(--rc) 60%, transparent);
   display: grid; grid-template-rows: auto 1fr auto; padding: 10px 10px 12px; text-align: center;
 }
 .gcard .rar { font-size: 11px; font-weight: 800; letter-spacing: 0.2em; color: var(--rc); }
-.gcard .big { align-self: center; font: 900 clamp(40px, 13vw, 58px)/1 var(--num); color: var(--rc); text-shadow: 0 0 18px color-mix(in srgb, var(--rc) 70%, transparent); }
+.gcard .big { align-self: center; font: 900 clamp(40px, 13vw, 58px)/1 var(--num); color: var(--rc); text-shadow: 0 0 18px var(--rc);text-shadow: 0 0 18px color-mix(in srgb, var(--rc) 70%, transparent); }
 .gcard .nm { font-weight: 800; font-size: 15px; line-height: 1.25; }
 .gcard .st { font-size: 11px; color: var(--muted); font-family: var(--num); margin-top: 3px; }
 .gcard.r-legend .front { background: linear-gradient(160deg, #3B2A08, #121A2C 65%); }
-.gcard.r-legend .front::before { content: ""; position: absolute; inset: -50%; background: conic-gradient(from 0deg, #FF5F6D, #FFC371, #F9F871, #5EF2A0, #5BC0FF, #B07CFF, #FF5F6D); opacity: 0.22; animation: spin 4s linear infinite; }
+.gcard.r-legend .front::before { content: ""; position: absolute; top:-50%;right:-50%;bottom:-50%;left:-50%; background: conic-gradient(from 0deg, #FF5F6D, #FFC371, #F9F871, #5EF2A0, #5BC0FF, #B07CFF, #FF5F6D); opacity: 0.22; animation: spin 4s linear infinite; }
 .gcard.r-legend .front > * { position: relative; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .gcard.flipped.hi { animation: bounce 0.5s ease-out 0.55s; }
@@ -260,7 +260,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   --c1: #3A4766; --c2: #fff;
   position: relative; flex: 0 0 31%; min-width: 104px; max-width: 150px; aspect-ratio: 3 / 4.3;
   border-radius: 10px; overflow: hidden; padding: 0; text-align: left; scroll-snap-align: start;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 78%, #000) 0%, color-mix(in srgb, var(--c1) 35%, #070A12) 62%, #070A12 100%);
+  background: linear-gradient(180deg, var(--c1) 0%, #070A12 62%, #070A12 100%);background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 78%, #000) 0%, color-mix(in srgb, var(--c1) 35%, #070A12) 62%, #070A12 100%);
   border: 1.5px solid rgba(255,255,255,0.10);
 }
 .tgrid .tcard { max-width: none; width: 100%; }
@@ -283,7 +283,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   --c1: #3A4766; --c2: #fff;
   position: relative; overflow: hidden; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10);
   display: grid; grid-template-columns: 34% 1fr; min-height: 150px;
-  background: linear-gradient(110deg, color-mix(in srgb, var(--c1) 70%, #000) 0%, #0B1020 75%);
+  background: linear-gradient(110deg, var(--c1) 0%, #0B1020 75%);background: linear-gradient(110deg, color-mix(in srgb, var(--c1) 70%, #000) 0%, #0B1020 75%);
 }
 .dp-word { position: absolute; left: -4%; top: 18%; font: italic 900 54px/1 var(--num); color: var(--c2); opacity: 0.10; transform: rotate(-8deg); white-space: nowrap; pointer-events: none; }
 .dp-fig { position: relative; align-self: end; height: 150px; margin-bottom: -2px; }
@@ -296,7 +296,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* 抽卡卡面：2K 卡样式 + 稀有度边框 */
 .gcard .front { display: block; padding: 0; background: #070A12; }
-.gcard .front .g-team { position: absolute; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 75%, #000) 0%, #070A12 75%); }
+.gcard .front .g-team { position: absolute; top:0;right:0;bottom:0;left:0; background: linear-gradient(180deg, var(--c1) 0%, #070A12 75%);background: linear-gradient(180deg, color-mix(in srgb, var(--c1) 75%, #000) 0%, #070A12 75%); }
 .gcard .g-ring { position: absolute; top: 5px; left: 5px; width: 40%; }
 .gcard .g-meta { position: absolute; top: 6px; right: 7px; text-align: right; font: 700 11px/1.3 var(--num); color: #E3E8F2; }
 .gcard .g-fig { position: absolute; left: 4%; right: 4%; top: 17%; bottom: 25%; }
@@ -327,13 +327,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .node { font-size: 13px; }
 
 /* 选定核心后的 1 秒闪光 */
-.star-flash { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, #3B2A08 0%, #0B0F1A 70%); overflow: hidden; }
+.star-flash { position: fixed; top:0;right:0;bottom:0;left:0; z-index: 60; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, #3B2A08 0%, #0B0F1A 70%); overflow: hidden; }
 .star-flash .rays { position: absolute; width: 220vmax; height: 220vmax; background: repeating-conic-gradient(from 0deg, rgba(242,193,78,0.28) 0deg 6deg, transparent 6deg 18deg); animation: spin 6s linear infinite; }
 .star-flash .star-card { position: relative; width: min(56vw, 220px); aspect-ratio: 5 / 7; border-radius: 16px; border: 3px solid var(--gold); background: linear-gradient(160deg, #4A3510, #121A2C 70%); box-shadow: 0 0 60px 16px rgba(242,193,78,0.55); display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 12px; animation: starIn 1s cubic-bezier(.2,.9,.3,1.2) forwards; }
 .star-flash .rank { color: var(--gold); font-weight: 800; letter-spacing: 0.15em; font-size: 13px; }
 .star-flash .big { font: 900 72px/1 var(--num); color: var(--gold); text-shadow: 0 0 24px rgba(242,193,78,0.8); }
 .star-flash .nm { font-weight: 800; font-size: 18px; }
-.star-flash .white { position: absolute; inset: 0; background: #fff; opacity: 0; animation: whiteFlash 1s ease-out forwards; pointer-events: none; }
+.star-flash .white { position: absolute; top:0;right:0;bottom:0;left:0; background: #fff; opacity: 0; animation: whiteFlash 1s ease-out forwards; pointer-events: none; }
 @keyframes starIn { 0% { transform: scale(0.4) rotate(-10deg); opacity: 0; } 35% { transform: scale(1.12) rotate(2deg); opacity: 1; } 60% { transform: scale(1); } 100% { transform: scale(1.04); } }
 @keyframes whiteFlash { 0% { opacity: 0.95; } 30% { opacity: 0; } 70% { opacity: 0; } 85% { opacity: 0.5; } 100% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .star-flash .rays, .star-flash .star-card, .star-flash .white { animation: none; } }
