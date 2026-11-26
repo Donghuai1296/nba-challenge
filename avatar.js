@@ -400,8 +400,12 @@
     const bg = opts.bare ? 'transparent' : '#fff';
     const cls = `hp-ph${opts.bare ? ' bare' : ''}${boxed ? ' boxed' : ''}`;
     if (!url) return `<span class="${cls} fail" style="background:${bg}">${svg}</span>`;
+    // 只有头、没有肩膀的抠图（photo-lift.js）：竖版卡里往上挪，头顶和现役照片一样高，下巴不被名字栏挡住
+    //   起因：2026-11-26 用户说十连抽里「2004 年达文·哈姆的头像就不对」——头偏低、像飘着的小头
+    const lift = opts.bare && !boxed && root.PHOTO_LIFT ? root.PHOTO_LIFT[mlOf(rawPhoto(p))] || 0 : 0;
+    const shift = lift ? ` style="transform:translateY(-${lift}%)"` : '';
     // 剪影先藏起来，直接显示照片；照片加载失败才把剪影露出来
-    return `<span class="${cls}" style="background:${bg}">${svg}<img class="hp-photo" alt="" src="${url}" referrerpolicy="no-referrer" decoding="async" onerror="this.parentNode.classList.add('fail');this.remove()"></span>`;
+    return `<span class="${cls}" style="background:${bg}">${svg}<img class="hp-photo" alt="" src="${url}"${shift} referrerpolicy="no-referrer" decoding="async" onerror="this.parentNode.classList.add('fail');this.remove()"></span>`;
   }
   // 提前把一批照片下载进浏览器缓存（比如进入选人页前），翻页时就不会一张张冒出来
   const preloaded = new Set();

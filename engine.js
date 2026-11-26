@@ -53,10 +53,9 @@
   function buildCoexist() {
     coexist = new Set();
     const load = (g, file) => { if (root[g]) return root[g]; if (!IS_NODE) return null; try { return require(file); } catch (e) { return null; } };
-    const LG = load('LEAGUE', './league.js'), DR = load('DRAFTS', './drafts.js');
+    const LG = load('LEAGUE', './league.js'); // 选秀名单（drafts.js）2026-11-26 起不再进游戏，不用算
     const lists = [CHAMPIONS_LIST().map((p) => p.name)];
     if (LG) lists.push(Object.values(LG.teams).flat().map((p) => p.name));
-    if (DR) for (const l of Object.values(DR)) lists.push(l.map((p) => p.name));
     for (const list of lists) {
       const ns = [...new Set(list.map(normName))];
       for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) if (looksSame(ns[i], ns[j])) { coexist.add(ns[i] + '|' + ns[j]); coexist.add(ns[j] + '|' + ns[i]); }
@@ -302,6 +301,15 @@
       got.push({ ...pool[Math.floor(rand() * pool.length)] });
     }
     return got;
+  }
+  // 只留满足条件的人（原地改 GACHA_POOL 和各档卡池，宝箱候选也跟着变）；各档概率不变。
+  // 虎扑版（有照片）用它去掉找不到照片的老替补：剪影在 10 连抽里像头像没加载出来（2026-11-26 用户说「有点球员头像加载有问题」）
+  function limitGachaPool(keep) {
+    const kept = GACHA_POOL.filter(keep);
+    if (!kept.length) return;
+    GACHA_POOL.length = 0;
+    GACHA_POOL.push(...kept);
+    for (const t of GACHA_TIERS) { const left = t.pool.filter(keep); if (left.length) t.pool = left; } // 某一档全被去掉就保留原样（不会发生）
   }
 
   // ---------- 随机工具 ----------
@@ -922,7 +930,7 @@
   const api = {
     MIN_PER_POS, rosterOk, canReplace, replaceTarget, samePlayer, champOvr, LEGACY, PASSIVES, STARS, POOL_90, POOL_85, POOL_80, BENCH_POOL, LEVELS, GACHA_RATES, GACHA_POOL, CHEM_PER_WIN, CHEM_MAX, STARTER_W,
     POS, POS_LABEL, CHAMP_BOOST, MISSING_POS_PENALTY, BOND, bondBonus, bondPower, isBoss, bossOf, bossName, BOSSES, BOSS_SLOTS, OLD_NORMAL, RENAMED,
-    chemistry, statSum, seasonOvr, avgOvr, teamPower, missingPositions, arrange, autoReplace, randomSupport, gacha, simulate, shuffle, short, rng, nick, playByPlay, shotProfile,
+    chemistry, statSum, seasonOvr, avgOvr, teamPower, missingPositions, arrange, autoReplace, randomSupport, gacha, limitGachaPool, simulate, shuffle, short, rng, nick, playByPlay, shotProfile,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Engine = api;

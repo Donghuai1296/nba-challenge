@@ -659,12 +659,10 @@ showResult = function (r) {
 };
 const drawLabel = () => [run.draws ? `10 连抽 ×${run.draws}` : '', run.passivePending ? `勋章 ×${run.passivePending}` : '', chestReady() ? `宝箱 ×${chestReady()}` : ''].filter(Boolean).join(' · ');
 
-// 宝箱候选里有三届传奇选秀（1984 / 1996 / 2003，drafts.js）的球员：转成球员卡
-// （以前输球后有「传奇选秀大会」挑 1 人，2026-11-26 改成 10 连抽补偿，选秀页已删）
+// 三届传奇选秀（1984 / 1996 / 2003）的球员已经全部去掉（2026-11-26 用户：「选秀包里的球员去掉」）：
+//   以前输球后有「传奇选秀大会」挑 1 人、宝箱候选里也有他们；现在选秀页删了，宝箱也不出，drafts.js 不再加载。
+//   老存档里已经签下的选秀球员照旧留在队里（卡片来历靠 p.draft 显示「'03 选秀 #5」）
 const shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-function draftee(year, d) {
-  return { ...d, from: `${year} 选秀 · 第 ${d.pick} 顺位`, season: '选秀', draft: { year, pick: d.pick }, team: run.teamCode, realTeam: d.rookieTeam };
-}
 // 新人进队（宝箱、Boss 卡共用）：换下同位置最弱的；同位置没人能换，就换替补席最弱的——
 // 2026-11-19 起替补不看位置：他加进来排好首发后，替补里总评最低的人被换下（E.replaceTarget）。被换下的人变成幸运值
 function bringIn(p) {
@@ -675,7 +673,7 @@ function bringIn(p) {
   return { out: out.x, luck: luckText(addLuck(luckFor(out.x))) };
 }
 // ---------- 幸运宝箱：宝箱 = 10 名 85-95 球员自选 1 名；超级明星宝箱 = 10 名 95+ 球员自选 1 名 ----------
-// 候选：历届冠军球员（10 连抽卡池）+ 现役球员 + 三届传奇选秀；阵中已有的人（不同译名也算）不出现，同一个人只出一个版本
+// 候选：历届冠军球员（10 连抽卡池）+ 现役球员；阵中已有的人（不同译名也算）不出现，同一个人只出一个版本
 const CHEST = {
   normal: { name: '宝箱', icon: '🎁', lo: 85, hi: 95, desc: '10 名 85-95 球员，自选 1 名' },
   super: { name: '超级明星宝箱', icon: '👑', lo: 95, hi: 999, desc: '10 名 95+ 球员，自选 1 名' },
@@ -683,8 +681,7 @@ const CHEST = {
 function chestPool(kind) {
   const c = CHEST[kind];
   const league = Object.keys(C.LEAGUE.teams).flatMap((code) => C.rosterOf(code).map((p) => ({ ...p, team: run.teamCode, realTeam: code, from: '现役', season: '本季' })));
-  const drafts = Object.entries(window.DRAFTS || {}).flatMap(([y, l]) => l.map((d) => draftee(+y, d)));
-  const all = shuffleArr([...E.GACHA_POOL, ...league, ...drafts].filter((p) => p.ovr >= c.lo && p.ovr <= c.hi && !run.team.some((x) => E.samePlayer(x.name, p.name))));
+  const all = shuffleArr([...E.GACHA_POOL, ...league].filter((p) => p.ovr >= c.lo && p.ovr <= c.hi && !run.team.some((x) => E.samePlayer(x.name, p.name))));
   const out = [];
   for (const p of all) {
     if (out.length >= 10) break;
