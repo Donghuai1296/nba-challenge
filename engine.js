@@ -199,20 +199,31 @@
     const x = pool.reduce((a, b) => (b.ovr < a.ovr ? b : a));
     return { x, i: team.indexOf(x) };
   }
+  // 同一个球员的不同版本（不同赛季 / 球队，比如 76 人詹姆斯 97、热火詹姆斯 99；不同译名也算同一人）：队里只留一张，可以升级
+  //   2026-11-26 用户定「同一人只留一张，可升级」——以前抽到另一个版本一律算重复，只能换成幸运值
+  const sameOnTeam = (team, p) => team.find((x) => samePlayer(x.name, p.name)) || null;
+  // 新人进队换下谁（10 连抽、宝箱、Boss 卡共用）：
+  //   队里已经有这个人 → 新卡更强就换下旧版本（upgrade）；不比旧的强 → null（不能签，只能换幸运值）
+  //   队里没有这个人 → 照旧换下替补里最弱的（replaceTarget）
+  function signTarget(team, incoming, keep = []) {
+    const same = sameOnTeam(team, incoming);
+    if (same) return !same.isMe && incoming.ovr > same.ovr ? { x: same, i: team.indexOf(same), upgrade: true } : null;
+    return replaceTarget(team, incoming, keep);
+  }
 
   // 一键替换：从总评最高的卡开始，每张都按上面的规则找替补里最弱的人，比他高就换（核心、你自己不换），最后自动排首发
+  //   队里已有同一个人的：更强就升级替换旧版本，不更强就跳过（之后算重复，换幸运值）
   function autoReplace(team, cards, coreName) {
     const keep = [].concat(coreName || []);
     let next = arrange([...team], coreName);
     const swaps = [];
     const order = cards.map((c, i) => ({ c, i })).sort((a, b) => b.c.ovr - a.c.ovr);
     for (const { c, i } of order) {
-      if (next.some((p) => samePlayer(p.name, c.name))) continue; // 已经在阵中（不同译名也算）
-      const out = replaceTarget(next, c, keep);
+      const out = signTarget(next, c, keep);
       if (!out || c.ovr <= out.x.ovr) continue; // 数值高才换
       next[out.i] = { ...c };
       next = arrange(next, coreName);
-      swaps.push({ index: i, in: c, out: out.x });
+      swaps.push({ index: i, in: c, out: out.x, upgrade: !!out.upgrade });
     }
     return { team: arrange(next, coreName), swaps };
   }
@@ -928,7 +939,7 @@
   }
 
   const api = {
-    MIN_PER_POS, rosterOk, canReplace, replaceTarget, samePlayer, champOvr, LEGACY, PASSIVES, STARS, POOL_90, POOL_85, POOL_80, BENCH_POOL, LEVELS, GACHA_RATES, GACHA_POOL, CHEM_PER_WIN, CHEM_MAX, STARTER_W,
+    MIN_PER_POS, rosterOk, canReplace, replaceTarget, signTarget, sameOnTeam, samePlayer, champOvr, LEGACY, PASSIVES, STARS, POOL_90, POOL_85, POOL_80, BENCH_POOL, LEVELS, GACHA_RATES, GACHA_POOL, CHEM_PER_WIN, CHEM_MAX, STARTER_W,
     POS, POS_LABEL, CHAMP_BOOST, MISSING_POS_PENALTY, BOND, bondBonus, bondPower, isBoss, bossOf, bossName, BOSSES, BOSS_SLOTS, OLD_NORMAL, RENAMED,
     chemistry, statSum, seasonOvr, avgOvr, teamPower, missingPositions, arrange, autoReplace, randomSupport, gacha, limitGachaPool, simulate, shuffle, short, rng, nick, playByPlay, shotProfile,
   };

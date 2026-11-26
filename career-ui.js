@@ -633,7 +633,7 @@ showResult = function (r) {
     banner.insertAdjacentHTML('beforeend', `<p class="boss-beat">👑 你击败了五大 Boss 之「${L.boss.glyph}」${esc(E.bossName(L.boss))}！</p>`);
     const card = bossCardOf(lvIdx);
     if (lvIdx >= TOTAL - 1) { /* 最后一关打完就通关了，Boss 卡没用，不发 */ }
-    else if (run.team.some((x) => E.samePlayer(x.name, card.name))) {
+    else if (dupBlocked(card)) { // 队里已经有他、而且不比 Boss 卡弱；队里是他更弱的版本就照常发卡（签下即升级）
       const lk = luckText(addLuck(BOSS_CARD_LUCK));
       banner.insertAdjacentHTML('beforeend', `<p class="small muted">${esc(short(card.name))} 已经在你队里，Boss 卡换成 ${lk || `幸运值 +${BOSS_CARD_LUCK}`}</p>`);
     } else {
@@ -672,14 +672,16 @@ const shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) {
 // 新人进队（宝箱、Boss 卡共用）：换下同位置最弱的；同位置没人能换，就换替补席最弱的——
 // 2026-11-19 起替补不看位置：他加进来排好首发后，替补里总评最低的人被换下（E.replaceTarget）。被换下的人变成幸运值
 function bringIn(p) {
-  const out = E.replaceTarget(run.team, p, coreNames()); // 开局选的明星不再是核心，也可以被换下（你自己永远不会被换）
+  // 开局选的明星不再是核心，也可以被换下（你自己永远不会被换）；队里已有同一个人的弱版本 → 换下那个版本（升级，E.signTarget）
+  const out = E.signTarget(run.team, p, coreNames());
   if (!out) { toast('没有能换下的人'); return null; }
   run.team[out.i] = { ...p };
   run.team = E.arrange(run.team, coreNames());
   return { out: out.x, luck: luckText(addLuck(luckFor(out.x))) };
 }
 // ---------- 幸运宝箱：宝箱 = 10 名 85-95 球员自选 1 名；超级明星宝箱 = 10 名 95+ 球员自选 1 名 ----------
-// 候选：历届冠军球员（10 连抽卡池）+ 现役球员；阵中已有的人（不同译名也算）不出现，同一个人只出一个版本
+// 候选：历届冠军球员（10 连抽卡池）+ 现役球员；同一个人只出一个版本。
+//   阵中已有的人（不同译名也算）：只出比队里那张更强的版本（选了就升级，2026-11-26 用户定「同一人只留一张，可升级」）
 const CHEST = {
   normal: { name: '宝箱', icon: '🎁', lo: 85, hi: 95, desc: '10 名 85-95 球员，自选 1 名' },
   super: { name: '超级明星宝箱', icon: '👑', lo: 95, hi: 999, desc: '10 名 95+ 球员，自选 1 名' },
@@ -687,7 +689,7 @@ const CHEST = {
 function chestPool(kind) {
   const c = CHEST[kind];
   const league = Object.keys(C.LEAGUE.teams).flatMap((code) => C.rosterOf(code).map((p) => ({ ...p, team: run.teamCode, realTeam: code, from: '现役', season: '本季' })));
-  const all = shuffleArr([...E.GACHA_POOL, ...league].filter((p) => p.ovr >= c.lo && p.ovr <= c.hi && !run.team.some((x) => E.samePlayer(x.name, p.name))));
+  const all = shuffleArr([...E.GACHA_POOL, ...league].filter((p) => p.ovr >= c.lo && p.ovr <= c.hi && !dupBlocked(p)));
   const out = [];
   for (const p of all) {
     if (out.length >= 10) break;
@@ -722,7 +724,7 @@ function chestStage(stage) {
 // 宝箱推荐：先看签下后首发 5 人总评加起来涨多少（位置缺口优先：中锋只有 80，文班就比乔丹更值），
 // 一样再看整队涨多少（他和被换下的人差多少），再一样就看总评。会把你自己挤下首发的人不算首发提升
 function chestGain(p) {
-  const out = E.replaceTarget(run.team, p, coreNames());
+  const out = E.signTarget(run.team, p, coreNames()); // 同一个人的更强版本：换下旧版本（升级）
   if (!out) return null;
   const now = E.arrange(run.team, coreNames());
   const next = [...run.team];
@@ -742,6 +744,7 @@ function chestGain(p) {
     starts: after.slice(0, 5).some((x) => x.name === p.name),
     was: now.slice(0, 5).find((x) => x.pos === p.pos), // 他这个位置原来的首发
     benchMe,
+    upgrade: !!out.upgrade, // 换下的是他自己的旧版本
   };
 }
 function chestRec(gains) {
@@ -757,6 +760,7 @@ function recText(p, x) {
   const pos = E.POS_LABEL[p.pos];
   const bond = x.dBond > 0 ? `；🔗 凑成羁绊：${esc(x.bondAfter.cn)} ${x.bondAfter.n} 人同队首发，这 ${x.bondAfter.n} 人各 +${x.bondAfter.bonus}`
     : x.dBond < 0 ? `；但会拆散羁绊（${esc(x.bondNow.cn)} ${x.bondNow.n} 人 +${x.bondNow.bonus} → ${x.bondAfter.bonus ? `${x.bondAfter.n} 人 +${x.bondAfter.bonus}` : '没有'}）` : '';
+  if (x.upgrade) return `⬆ 升级：队里的${esc(short(x.out.name))}（${esc(srcOf(x.out))}）${x.out.ovr} → ${p.ovr}（${esc(srcOf(p))}）${bond}${x.start > 0 ? `（首发提升 +${x.start}）` : ''}`;
   if (x.start > 0 && x.starts && x.was) return `直接首发${pos}，${esc(short(x.was.name))} ${x.was.ovr} → ${p.ovr}${bond}（首发提升 +${x.start}）`;
   if (x.start > 0) return `首发提升 +${x.start}${bond}`;
   if (x.total > 0) return `首发都比他强，补强替补：换下 ${esc(short(x.out.name))}（${x.out.ovr}），+${x.total}`;
@@ -816,7 +820,7 @@ function chestOpen(stage, sel = null) {
       ${rec === i ? '<span class="rec-tag">推荐</span>' : ''}${gainTag(gains[i])}</div>`).join('')}</div>
     ${rec !== null ? `<p class="chest-rec">💡 推荐 <b>${esc(short(players[rec].name))}</b>：${recText(players[rec], gains[rec])}</p>` : ''}
     <div class="mp-act">${sel === null ? '<p class="small muted" style="text-align:center">👆 点一名球员</p>'
-      : g ? `<button class="btn btn-gold" id="chestSign">签下 ${esc(short(players[sel].name))}（${E.POS_LABEL[players[sel].pos]} ${players[sel].ovr}），换下 ${esc(short(g.out.name))}（${g.out.ovr}）</button>`
+      : g ? `<button class="btn btn-gold" id="chestSign">${g.upgrade ? `⬆ 升级 ${esc(short(players[sel].name))}：${g.out.ovr} → ${players[sel].ovr}` : `签下 ${esc(short(players[sel].name))}（${E.POS_LABEL[players[sel].pos]} ${players[sel].ovr}），换下 ${esc(short(g.out.name))}（${g.out.ovr}）`}</button>`
         : '<p class="small warn" style="text-align:center">没有能换下的人</p>'}</div>
     ${chestRoster(sel !== null ? players[sel] : null, g)}`;
   stage.querySelectorAll('.cslot').forEach((el) => (el.onclick = () => chestOpen(stage, Number(el.dataset.i))));
@@ -1356,10 +1360,10 @@ function bossCardPage() {
   app.innerHTML = `${statusBar()}
     <section class="draft-head pop"><p class="eyebrow">👑 击败五大 Boss 之「${b.glyph}」</p>
       <h2>${esc(E.bossName(b))}愿意加入你</h2>
-      <p class="muted small">${L.year} ${esc(L.team)}版本 · 签下后换下同位置最弱的人</p></section>
+      <p class="muted small">${L.year} ${esc(L.team)}版本 · ${g && g.upgrade ? `队里已有${esc(short(g.out.name))}（${g.out.ovr}），签下就升级成这个版本` : '签下后换下替补里最弱的人'}</p></section>
     <div class="boss-card">${tallCard(shownAs(p))}</div>
     ${g ? `<p class="chest-rec">💡 ${recText(p, g)}</p>` : '<p class="small warn" style="text-align:center">没有能换下的人</p>'}
-    ${g ? `<button class="btn btn-gold" id="bcSign">签下 ${esc(short(p.name))}（${E.POS_LABEL[p.pos]} ${p.ovr}），换下 ${esc(short(g.out.name))}（${g.out.ovr}）</button>` : ''}
+    ${g ? `<button class="btn btn-gold" id="bcSign">${g.upgrade ? `⬆ 升级 ${esc(short(p.name))}：${g.out.ovr} → ${p.ovr}` : `签下 ${esc(short(p.name))}（${E.POS_LABEL[p.pos]} ${p.ovr}），换下 ${esc(short(g.out.name))}（${g.out.ovr}）`}</button>` : ''}
     <button class="btn btn-ghost" id="bcSkip">不要了，换成幸运值 +${BOSS_CARD_LUCK}</button>`;
   setNav('play');
   const next = () => { run.bossCards = (run.bossCards || []).slice(1); save(); };

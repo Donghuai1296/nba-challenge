@@ -107,6 +107,9 @@ const winChance = (diff) => 1 / (1 + Math.exp(-1.702 * ((diff * 1.4) / 11.3)));
 const statLine = (p) => `${p.season === '本季' ? '本季 ' : ''}${fmt1(p.pts)}分 ${fmt1(p.reb)}板 ${fmt1(p.ast)}助 ${fmt1(p.stl)}断 ${fmt1(p.blk)}帽`;
 const fromChip = (p) => (p.from && p.from !== '现役' ? ` <span class="chip">${esc(p.from)}</span>` : '');
 const onTeam = (name) => run.team.some((p) => E.samePlayer(p.name, name)); // 不同译名也算同一人
+// 同一个球员只留一张，可以升级（2026-11-26 用户定）：抽到的卡在队里已有同一个人时，
+//   比队里那张强 → 可以签（只能换下旧版本，E.signTarget）；不比它强 → 算重复（换幸运值）
+const dupBlocked = (c) => { const s = E.sameOnTeam(run.team, c); return !!s && (s.isMe || c.ovr <= s.ovr); };
 
 const posTag = (p) => (p.pos ? `<span class="pos pos-${p.pos}">${E.POS_LABEL[p.pos]}</span>` : '');
 function playerCard(p, opts = {}) {
@@ -735,7 +738,7 @@ function oneClickReplace() {
   for (const sw of res.swaps) {
     const idx = rest[sw.index].i;
     s.signed.push(idx);
-    s.swaps.push({ in: sw.in, out: sw.out });
+    s.swaps.push({ in: sw.in, out: sw.out, up: sw.upgrade });
     pts += luckFor(sw.out); // 被换下的人 → 幸运值
   }
   pts += sweepDupes(s);
@@ -769,12 +772,12 @@ function addLuck(n) {
 }
 const luckText = (g) => (!g ? '' : `🍀 幸运值 +${g.n}${g.normal ? '，🎁 获得宝箱' : ''}${g.super ? '，👑 获得超级明星宝箱' : ''}`);
 const chestReady = () => (run && run.chests ? (run.chests.normal || 0) + (run.chests.super || 0) : 0);
-// 10 连抽里没签、但人已经在阵中（重复抽到，包括同一抽里抽到两次）的卡 → 幸运值
+// 10 连抽里没签、但人已经在阵中、又不比队里那张强（重复抽到）的卡 → 幸运值；更强的版本留着可以升级
 function sweepDupes(s) {
   s.fragged = s.fragged || [];
   let pts = 0;
   s.cards.forEach((c, i) => {
-    if (s.signed.includes(i) || s.fragged.includes(i) || !onTeam(c.name)) return;
+    if (s.signed.includes(i) || s.fragged.includes(i) || !dupBlocked(c)) return;
     s.fragged.push(i);
     pts += luckOf(c.ovr);
   });
@@ -789,18 +792,20 @@ function signing() {
     ${statusBar()}
     <h2>签约球员</h2>
     ${s.swaps.length ? `<section class="card"><h3>一键替换结果（换下替补里最弱的人）</h3>
-      ${s.swaps.map((x) => `<div class="swap-row">${posTag(x.in)}<b>${esc(short(x.in.name))} ${x.in.ovr}</b><span class="muted">换下</span><span>${esc(short(x.out.name))} ${x.out.ovr}</span><span class="diff-up">+${x.in.ovr - x.out.ovr}</span></div>`).join('')}
+      ${s.swaps.map((x) => `<div class="swap-row">${posTag(x.in)}<b>${esc(short(x.in.name))} ${x.in.ovr}</b><span class="muted">${x.up ? '升级旧版' : '换下'}</span><span>${esc(short(x.out.name))} ${x.out.ovr}</span><span class="diff-up">+${x.in.ovr - x.out.ovr}</span></div>`).join('')}
     </section>` : ''}
     <p class="muted small">也可以手动签：点一张卡，再选一名要换下的球员（不限位置，替补只看总评）。被换下的人、重复抽到的球星会变成幸运值；其他没签的卡离开后作废。</p>
     <div class="plist">${s.cards.map((p, i) => {
       const signed = s.signed.includes(i);
       const frag = !signed && (s.fragged || []).includes(i);
-      const dup = !signed && !frag && onTeam(p.name);
-      const tag = signed ? ' <span class="chip gold">已签约</span>' : frag ? ' <span class="chip">🍀 已转幸运值</span>' : dup ? ' <span class="chip">已在阵中</span>' : '';
+      const dup = !signed && !frag && dupBlocked(p);
+      const up = !signed && !frag && !dup && !!E.sameOnTeam(run.team, p); // 队里有他的弱版本：可以升级
+      const tag = signed ? ' <span class="chip gold">已签约</span>' : frag ? ' <span class="chip">🍀 已转幸运值</span>' : dup ? ' <span class="chip">已在阵中</span>' : up ? ' <span class="chip gold">⬆ 可升级</span>' : '';
       return playerCard(p, { button: !signed && !dup && !frag, sm: true, sel: pick === i, dim: signed || dup || frag, extra: tag, attrs: `data-card="${i}"` });
     }).join('')}</div>
     ${card ? `
       <h3>用 ${esc(short(card.name))}（${card.ovr}）换下谁？</h3>
+      ${E.sameOnTeam(run.team, card) ? `<p class="small muted">队里已经有 ${esc(short(E.sameOnTeam(run.team, card).name))}（${E.sameOnTeam(run.team, card).ovr}），同一个球员只留一张：只能换下他，升级成这个版本</p>` : ''}
       ${[['首发', 0, 5], ['替补', 5, 12]].map(([label, a, b]) => `
         <div class="muted small">${label}</div>
         <div class="plist">${run.team.slice(a, b).map((p, k) => {
@@ -822,7 +827,9 @@ function signing() {
   app.querySelectorAll('[data-slot]').forEach((el) => (el.onclick = () => {
     const i = Number(el.dataset.slot);
     const out = run.team[i];
-    if (isCore(out) || out.isMe) {
+    const same = E.sameOnTeam(run.team, card);
+    if (same && out !== same) { toast(`同一个球员只留一张：只能换下 ${short(same.name)}（${same.ovr}）`); return; }
+    if ((isCore(out) && out !== same) || out.isMe) {
       toast(out.isMe ? '你自己不能被换下' : '核心球星不能换下');
       return;
     }
