@@ -1,7 +1,7 @@
 // 球员 Q 版形象：大头小身子、当赛季球衣（配色、队名、号码）+ 标志性造型 / 外号造型。纯 SVG，离线可用。
 (function (root) {
   const D = root.LOOKS_DATA;
-  const DEFAULT_KIT = { primary: '#3A4766', secondary: '#FFFFFF', word: 'NBA' };
+  const DEFAULT_KIT = { primary: '#3A4766', secondary: '#FFFFFF', word: '' };
   const cache = new Map();
 
   // 冠军球员没写号码时：先找他别的夺冠赛季的号码；2026 尼克斯（就是上赛季）再找本赛季现役名单里的号码
@@ -60,6 +60,8 @@
   const NO_EARS = ['bunny', 'goat', 'robot', 'reaper', 'car', 'shark'];
   const NO_BEARD = ['joker', 'stone', 'robot', 'goat', 'bird'];
 
+  // 胸前城市名太长（LOS ANGELES、OKLAHOMA CITY）就压进胸口宽度
+  const fitW = (w, max, width) => (w.length > max ? ` textLength="${width}" lengthAdjust="spacingAndGlyphs"` : '');
   // opts.bare：不画方形底色（用在竖版球员卡里，人物"站"在卡面上）
   function cartoonSVG(p, opts = {}) {
     const { kit, num, look, key } = kitOf(p);
@@ -116,10 +118,10 @@
       P.push(`<path d="M46 65.5 Q50 73 54 65.5" fill="none" stroke="${c2}" stroke-width="2.2"/>`);
       P.push(`<path d="M35.5 71 Q39 80 37 92 M64.5 71 Q61 80 63 92" fill="none" stroke="${c2}" stroke-width="1.8"/>`);
       if (num !== undefined) {
-        P.push(`<text x="50" y="78.5" ${font} font-size="4.6" letter-spacing="0.3" fill="${c2}">${word}</text>`);
+        P.push(`<text x="50" y="78.5" ${font} font-size="4.6" letter-spacing="0.3" fill="${c2}"${fitW(word, 7, 24)}>${word}</text>`);
         P.push(`<text x="50" y="92" ${font} font-size="13" fill="${c2}" stroke="${LINE}" stroke-width="0.5">${num}</text>`);
       } else {
-        P.push(`<text x="50" y="86" ${font} font-size="5.6" letter-spacing="0.3" fill="${c2}">${word}</text>`);
+        P.push(`<text x="50" y="86" ${font} font-size="5.6" letter-spacing="0.3" fill="${c2}"${fitW(word, 6, 26)}>${word}</text>`);
       }
       if (st === 'king') {
         P.push(`<ellipse cx="50" cy="67" rx="19" ry="4.6" fill="#fff" ${s}/>`);
@@ -360,7 +362,11 @@
   // 人像分割抠好的老照片（photo-ml.js，scripts/ml-cutout.js 生成）：比方形原图、按颜色抠的都优先
   //   起因：用户说「1994 火箭球员头像显示出来很奇怪」——观众席背景的比赛照以前只能整块方图显示
   const mlOf = (u) => (root.PHOTO_ML && root.PHOTO_ML[u]) || '';
+  // 网站版（scripts/build-site.js 默认）不放球员照片：页面里写 window.NO_PHOTOS = true，全部用 Q 版形象。
+  //   虎扑版的照片来自虎扑技能包和虎扑图床，算平台提供；公开网站上没有这层授权（2026-11-26 用户定）
+  const NO_PHOTOS = !!root.NO_PHOTOS;
   function hupuPhoto(p) {
+    if (NO_PHOTOS) return '';
     const u = rawPhoto(p);
     if (!u) return '';
     if (mlOf(u)) return resolve(mlOf(u));
@@ -383,6 +389,11 @@
       const cls = `hp-ph fail${opts.bare ? ' bare' : ''}`;
       return `<span class="${cls}" style="background:${opts.bare ? 'transparent' : '#fff'}">${root.Faces.svg(p.look, kitOf(p).kit, opts)}</span>`;
     }
+    if (NO_PHOTOS) {
+      let svg = cartoonSVG(p, opts);
+      if (opts.bare) svg = svg.replace('<svg ', '<svg preserveAspectRatio="xMidYMax meet" '); // 竖版卡里人物站在卡面底部
+      return `<span class="hp-ph fail toon${opts.bare ? ' bare' : ''}" style="background:${opts.bare ? 'transparent' : '#fff'}">${svg}</span>`;
+    }
     const svg = silhouetteSVG(p, opts);
     const url = hupuPhoto(p);
     const boxed = url && isBoxed(rawPhoto(p)) && !mlOf(rawPhoto(p)); // 抠好了就不按方形照片显示
@@ -402,6 +413,7 @@
       preloaded.add(u);
       const im = new Image();
       im.decoding = 'async';
+      im.referrerPolicy = 'no-referrer'; // 和 <img referrerpolicy=no-referrer> 一致：虎扑图床拦外站 Referer，带了会 403
       im.src = u;
     }
   }

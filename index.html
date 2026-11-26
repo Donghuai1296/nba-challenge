@@ -230,6 +230,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .deck.many .gcard .big { font-size: clamp(24px, 7.5vw, 34px); }
 .deck.many .gcard .nm { font-size: 11px; }
 .deck.many .gcard .st, .deck.many .gcard .rar { font-size: 9px; letter-spacing: 0.05em; }
+/* 来历一行放下：年份写成 '14，城市名（比原来的队名长）不折行 */
+.deck.many .gcard .st { letter-spacing: -0.03em; white-space: nowrap; }
 .deck.many .gcard .back::after { font-size: 28px; }
 .r-silver { --rc: #AEB8C8; }
 .r-bronze { --rc: #C7834A; }
@@ -268,13 +270,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .trow.bench .tcard { flex-basis: 26%; min-width: 92px; }
 .tcard.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(242,193,78,0.35); }
 .tcard.dim { opacity: 0.5; }
-.tc-word { position: absolute; top: 30%; left: -10%; right: -10%; text-align: center; font: italic 900 30px/1 var(--num); color: var(--c2); opacity: 0.13; transform: rotate(-10deg); letter-spacing: 0.04em; pointer-events: none; }
+.tc-word { position: absolute; top: 30%; left: -10%; right: -10%; text-align: center; font: italic 900 30px/1 var(--num); color: var(--c2); opacity: 0.13; transform: rotate(-10deg); letter-spacing: 0.04em; white-space: nowrap; pointer-events: none; }
+.tc-word.w2 { font-size: 23px; top: 33%; }
+.tc-word.w3 { font-size: 18px; top: 35%; }
 .tc-fig { position: absolute; left: 4%; right: 4%; top: 15%; bottom: 17%; }
 .tc-fig svg, .dp-fig svg, .g-fig svg { width: 100%; height: 100%; display: block; }
 .tc-ring { position: absolute; top: 5px; left: 5px; width: 40%; max-width: 54px; }
 .ring { display: block; width: 100%; height: auto; }
 .tc-meta { position: absolute; top: 6px; right: 7px; text-align: right; font: 700 11px/1.35 var(--num); color: #E3E8F2; text-shadow: 0 1px 2px #000; }
-.tc-badge { position: absolute; top: 40%; right: 5px; font-size: 10px; font-weight: 800; color: #1A0E02; background: var(--gold); padding: 1px 5px; border-radius: 5px; }
+/* 球队标签放在人像下半身（城市名比原来的队名长，放在脸旁边会挡脸） */
+.tc-badge { position: absolute; bottom: 27%; right: 5px; max-width: calc(100% - 10px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; font-weight: 800; color: #1A0E02; background: var(--gold); padding: 1px 5px; border-radius: 5px; }
 .tc-name { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 4px 6px; background: rgba(5,8,15,0.86); text-align: center; line-height: 1.15; }
 .tc-name small { display: block; font-size: 10px; color: #AAB4C6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tc-name b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -290,6 +295,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   background: linear-gradient(110deg, var(--c1) 0%, #0B1020 75%);background: linear-gradient(110deg, color-mix(in srgb, var(--c1) 70%, #000) 0%, #0B1020 75%);
 }
 .dp-word { position: absolute; left: -4%; top: 18%; font: italic 900 54px/1 var(--num); color: var(--c2); opacity: 0.10; transform: rotate(-8deg); white-space: nowrap; pointer-events: none; }
+.dp-word.w2 { font-size: 42px; }
+.dp-word.w3 { font-size: 34px; }
 .dp-fig { position: relative; align-self: end; height: 150px; margin-bottom: -2px; }
 .dp-ring { position: absolute; left: 31%; top: 10px; width: 66px; }
 .dp-info { position: relative; padding: 12px 12px 12px 64px; display: grid; gap: 2px; align-content: center; min-width: 0; }
@@ -355,6 +362,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </head>
 <body>
 <main id="app"></main>
+<script>window.NO_PHOTOS = true;</script>
 <script src="positions.js"></script>
 <script src="looks.js"></script>
 <script src="faces.js"></script>

@@ -52,7 +52,7 @@ function tell(lines, eyebrow, btnText, next) {
 function halftime() {
   intro = { answers: [] };
   tell([
-    '这个周末，你终于抢到了一张 NBA 现场球票。', // 用户 11-19：不要「普通虎扑 JR」的说法
+    '这个周末，你终于抢到了一张职业联赛的现场球票。', // 用户 11-19：不要「普通虎扑 JR」的说法
     '中场休息，你正盯着场边的啦啦队看得入神——大屏幕突然切到了你的脸。',
     '全场的镜头都对着你。主持人跑过来：<b>“恭喜这位兄弟，被选中参加中场超远投篮挑战！”</b>',
     '他把话筒递到你嘴边：<b>“投之前先告诉大家——你最喜欢哪个球员？”</b>',
@@ -503,7 +503,7 @@ function hupu() {
   ];
   // 开局身份带来的专属评论
   const H = sigOf(me);
-  if (me.origin === 'halftime') comments.splice(2, 0, [`中场投篮三不沾砸了${short(run.star)}一下，就砸进了 NBA？这剧本编剧都不敢写`, '2.6万']);
+  if (me.origin === 'halftime') comments.splice(2, 0, [`中场投篮三不沾砸了${short(run.star)}一下，就砸进了职业联盟？这剧本编剧都不敢写`, '2.6万']);
   if (H) comments.push([`就会一招${H.name}，${H.attr}之外全是短板，穷人版${short(H.star)}罢了`, '9877']);
   const replies = ['冠军就是冠军，不服来打', '历史上的冠军队，我一支一支去赢给你们看', '轩尼诗是真的，戒指也是真的'];
   app.innerHTML = `
@@ -1368,7 +1368,7 @@ function bossSkillFx(L) {
 }
 // ---------- 挑战失败的嘲讽：输给 Boss 是他的专属台词（邓肯：「未来是你的，但不是现在。」），输给别的队是对面这场得分最多的人 ----------
 const TAUNTS = [
-  '新秀，欢迎来到 NBA。',
+  '新秀，欢迎来到联盟。',
   '下次记得把你的大腿也带上。',
   '回去多看看录像吧。',
   '就这？我还没热身呢。',
@@ -1544,12 +1544,12 @@ home = function () {
     <section class="home-hero pop">
       <h1 class="hh-title"><span>诸神</span><b>黄昏</b></h1>
       <p class="hh-sub">王 朝 终 结 者</p>
-      <p class="hh-pitch">一场意外，NBA 的大门为你打开。<br>面对 <b>${TOTAL} 关王朝球队</b><em>你能坚持到第几关？</em></p>
+      <p class="hh-pitch">一场意外，职业联盟的大门为你打开。<br>面对 <b>${TOTAL} 关王朝球队</b><em>你能坚持到第几关？</em></p>
     </section>
     <section class="card challenge pop">
       <p class="eyebrow">⚔️ 挑战王朝</p>
       <p>这条路上，有<b>成长</b>，有<b>收获</b>，有<b>挑战</b>，也有<b>失败</b>。</p>
-      <p>每一关，都是一支 NBA 历史上的<b>总冠军球队</b>。</p>
+      <p>每一关，都是一支历史上的<b>总冠军球队</b>。</p>
       <div class="ch-facts"><span><b class="num">${TOTAL}</b>关冠军球队</span><span><b class="num">${E.BOSSES.length}</b>大 Boss</span><span><b class="num">3</b>条命</span></div>
     </section>
     <p class="home-rec">🏅 你的纪录：${rec}</p>

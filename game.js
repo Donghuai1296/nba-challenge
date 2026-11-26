@@ -17,6 +17,29 @@ if (run && run.v !== SAVE_VERSION) {
   run = null;
   store.del('nba-run');
 }
+// 2026-11-26 球队改用城市名（队名是 NBA 的注册商标）：老存档里的「1996 芝加哥公牛」「1996 公牛」「湖人」换成城市名。
+// 冠军卡的 from 关系到羁绊判断，必须换；只换「（年份）（城市）队名」整串，球员名字、外号不会误伤
+if (run && window.Career) {
+  const OLD = { 老鹰: 'ATL', 凯尔特人: 'BOS', 篮网: 'BKN', 黄蜂: 'CHA', 公牛: 'CHI', 骑士: 'CLE', 独行侠: 'DAL', 小牛: 'DAL', 掘金: 'DEN', 活塞: 'DET', 勇士: 'GSW', 火箭: 'HOU', 步行者: 'IND', 快船: 'LAC', 湖人: 'LAL', 灰熊: 'MEM', 热火: 'MIA', 雄鹿: 'MIL', 森林狼: 'MIN', 鹈鹕: 'NOP', 尼克斯: 'NYK', 雷霆: 'OKC', 魔术: 'ORL', '76 人': 'PHI', '76人': 'PHI', 太阳: 'PHX', 开拓者: 'POR', 国王: 'SAC', 马刺: 'SAS', 猛龙: 'TOR', 爵士: 'UTA', 奇才: 'WAS' };
+  const CITIES = new Set(['', '洛杉矶', ...Object.values(window.Career.TEAM_CN)]);
+  const nicks = Object.keys(OLD).sort((a, b) => b.length - a.length);
+  const fix = (s) => {
+    const m = s.match(/^(\d{4} )?(.+)$/);
+    const k = m && nicks.find((n) => m[2].endsWith(n) && CITIES.has(m[2].slice(0, -n.length).trim()));
+    if (!k) return s;
+    const code = OLD[k];
+    return m[1] ? m[1] + (code === 'LAL' ? '洛杉矶' : window.Career.TEAM_CN[code]) : window.Career.TEAM_CN[code];
+  };
+  let changed = 0;
+  const walk = (o) => {
+    for (const key of Object.keys(o)) {
+      const v = o[key];
+      if (typeof v === 'string') { const t = fix(v); if (t !== v) { o[key] = t; changed++; } } else if (v && typeof v === 'object') walk(v);
+    }
+  };
+  walk(run);
+  if (changed) store.set('nba-run', run);
+}
 // 已删掉的勋章（2026-11-18 传奇勋章只留乔丹、詹姆斯、麦迪、库里、杜兰特）：从老存档里清掉；待选的三枚里有删掉的，换一枚新抽的
 if (run) {
   // 普通勋章 2026-11-19 重做（11 项能力各一枚，各 +2）：老存档先扣掉旧勋章的加成，再换成对应的新勋章（撞了就换一枚还没有的）
@@ -108,12 +131,14 @@ function ringSVG(ovr) {
     <text x="22" y="29.5" text-anchor="middle" font-size="14.5" font-weight="900" fill="#fff" font-family="Bahnschrift, Arial, sans-serif">${ovr}</text>
   </svg>`;
 }
+// 卡面水印印的是英文城市名（不印队名），长的城市名缩小字号，免得只露出半截
+const wordFit = (w) => (w.length >= 11 ? ' w3' : w.length >= 8 ? ' w2' : '');
 function tallCard(p, opts = {}) {
   const { kit, num } = Avatar.kitOf(p);
   const [first, last] = splitName(p.name);
   const tag = opts.button ? 'button' : 'div';
   return `<${tag} class="tcard ${opts.sel ? 'sel' : ''} ${opts.dim ? 'dim' : ''}" style="--c1:${kit.primary};--c2:${kit.secondary}" ${opts.attrs || ''}>
-    <div class="tc-word">${kit.word}</div>
+    <div class="tc-word${wordFit(kit.word)}">${kit.word}</div>
     <div class="tc-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
     <div class="tc-ring">${ringSVG(p.ovr)}</div>
     <div class="tc-meta">${num !== undefined ? `#${num}<br>` : ''}${E.POS_LABEL[p.pos] || ''}${p.bondPlus ? `<br><span class="tc-bond">🔗+${p.bondPlus}</span>` : ''}</div>
@@ -135,7 +160,7 @@ function detailPanel(p, note = '') {
   const { kit, num } = Avatar.kitOf(p);
   const [first, last] = splitName(p.name);
   return `<section class="dpanel" style="--c1:${kit.primary};--c2:${kit.secondary}">
-    <div class="dp-word">${kit.word}</div>
+    <div class="dp-word${wordFit(kit.word)}">${kit.word}</div>
     <div class="dp-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
     <div class="dp-ring">${ringSVG(p.ovr)}</div>
     <div class="dp-info">
@@ -344,7 +369,7 @@ function bondTeamOf(p) {
   if (p.from && p.from !== '现役' && /^\d{4}/.test(p.from)) {
     if (!NICK_CODE) {
       NICK_CODE = Object.fromEntries(Object.entries(window.Career ? window.Career.TEAM_CN : {}).map(([c, n]) => [n, c]));
-      NICK_CODE['小牛'] = 'DAL'; // 2011 达拉斯小牛 = 现在的独行侠
+      NICK_CODE['洛杉矶'] = 'LAL'; // 冠军队里的「洛杉矶」只有 L
     }
     return NICK_CODE[E.nick(p.from.replace(/^\d{4}\s*/, ''))];
   }
@@ -427,7 +452,7 @@ function gcardFront(p0) {
     <div class="g-ring">${ringSVG(p.ovr)}</div>
     <div class="g-meta">${num !== undefined && num !== null && num !== '' ? `#${esc(num)}<br>` : ''}${E.POS_LABEL[p.pos] || ''}</div>
     <div class="g-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
-    <div class="g-name"><div class="rar">${rarityOf(p).label}</div><div class="nm">${esc(p.name)}</div><div class="st">${p.from && p.from !== '现役' ? esc(p.from) : '现役'}</div></div>`;
+    <div class="g-name"><div class="rar">${rarityOf(p).label}</div><div class="nm">${esc(p.name)}</div><div class="st">${p.from && p.from !== '现役' ? esc(p.from.replace(/^\d{2}(\d{2}) /, "'$1 ")) : '现役'}</div></div>`;
 }
 function drawCards(players, { title, sub = '', done = '收下', host = null, walk = true }) {
   return new Promise((resolve) => {
@@ -1002,7 +1027,7 @@ function endScreen(won) {
   app.innerHTML = `
     <section class="hero pop" style="text-align:center">
       <h1 style="font-size:32px">${won ? `🏆 ${TOTAL} 关全通，王朝终结者！` : `止步第 ${run.level + 1} 关`}</h1>
-      <p class="tag">${won ? '你击败了 NBA 历史上所有这些冠军。' : `倒在了 ${L.year} ${esc(L.team)} 面前。`}最佳纪录：${best >= TOTAL ? '全部通关' : `闯到第 ${best} 关`}</p>
+      <p class="tag">${won ? '你击败了历史上所有这些冠军。' : `倒在了 ${L.year} ${esc(L.team)} 面前。`}最佳纪录：${best >= TOTAL ? '全部通关' : `闯到第 ${best} 关`}</p>
     </section>
     <h3>最终阵容</h3>
     ${run.career ? lineupGrids(run.team) : rosterHtml(run.team)}

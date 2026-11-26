@@ -225,19 +225,19 @@
   //   难度照样一关比一关强（每关 +0.5），和是哪支队无关
   // 每位 Boss 有专属技能（skill，真的改比赛结果，大厅横幅里写明）和挑战失败时的嘲讽（taunts，随机一句）
   const BOSSES = [
-    { year: 1987, team: '洛杉矶湖人', key: 'mo', glyph: '魔', nick: '魔术师', star: '魔术师约翰逊',
-      skill: { key: 'showtime', name: 'Showtime', desc: '湖人快攻如潮：对手实力 +2' },
+    { year: 1987, team: '洛杉矶', key: 'mo', glyph: '魔', nick: '魔术师', star: '魔术师约翰逊',
+      skill: { key: 'showtime', name: 'Showtime', desc: '洛杉矶快攻如潮：对手实力 +2' },
       taunts: ['这就是 Showtime，回去多看看录像吧。', '孩子，球是用来传的，不是用来送的。', '你跑得过我的快攻吗？显然不能。'] },
-    { year: 2001, team: '洛杉矶湖人', key: 'sha', glyph: '鲨', nick: '大鲨鱼', star: '沙奎尔·奥尼尔',
+    { year: 2001, team: '洛杉矶', key: 'sha', glyph: '鲨', nick: '大鲨鱼', star: '沙奎尔·奥尼尔',
       skill: { key: 'paint', name: '篮下统治', desc: '你的篮板 -25%，对手实力 +1.5' },
       taunts: ['篮下是我的地盘，回去多吃两碗饭再来。', '想挡我？先去健身房举两年铁。', '我罚球是不准，但打你够了。'] },
-    { year: 2016, team: '克利夫兰骑士', key: 'huang', glyph: '皇', nick: '小皇帝', star: '勒布朗·詹姆斯',
-      skill: { key: 'comeback', name: '1 比 3 逆转', desc: '骑士落后 5 分以内时，第四节有六成机会反扑 +3~6 分' },
+    { year: 2016, team: '克利夫兰', key: 'huang', glyph: '皇', nick: '小皇帝', star: '勒布朗·詹姆斯',
+      skill: { key: 'comeback', name: '1 比 3 逆转', desc: '克利夫兰落后 5 分以内时，第四节有六成机会反扑 +3~6 分' },
       taunts: ['1 比 3 我都能翻，你这点分差算什么？', '这一场，是送给克利夫兰的。', '别急着庆祝，比赛有四节。'] },
-    { year: 2003, team: '圣安东尼奥马刺', key: 'fo', glyph: '佛', nick: '石佛', star: '蒂姆·邓肯',
+    { year: 2003, team: '圣安东尼奥', key: 'fo', glyph: '佛', nick: '石佛', star: '蒂姆·邓肯',
       skill: { key: 'rock', name: '稳如磐石', desc: '比赛波动减半，很难爆冷；对手实力 +0.5' },
       taunts: ['未来是你的，但不是现在。', '基本功，才是篮球。', '打板进了，也算两分。'] },
-    { year: 1996, team: '芝加哥公牛', key: 'shen', glyph: '神', nick: '篮球之神', star: '迈克尔·乔丹',
+    { year: 1996, team: '芝加哥', key: 'shen', glyph: '神', nick: '篮球之神', star: '迈克尔·乔丹',
       skill: { key: 'lastshot', name: '最后一投', desc: '你只领先 1~3 分时，乔丹会在最后几秒绝杀' },
       taunts: ['72 胜都没人拦得住，你也一样。', '我记住你了。下次，还是我赢。', '最后一投，永远交给我。'] },
   ];
@@ -422,9 +422,9 @@
     // Boss 技能播报（bossSkill：比赛页放技能特效）；q = 放在第几节（0 起），不写就是开场
     let bossHit = ['showtime', 'paint', 'rock'].includes(sk); // 这三个是一直生效的
     const skillNote = (text, q) => notes.push({ side: 1, text: `【${L.boss.skill.name}】${text}`, bold: true, skill: true, bossSkill: true, ...(q == null ? { pre: true } : { q }) });
-    if (sk === 'showtime') skillNote('魔术师不看人传球，湖人快攻一条龙，一波接一波！', Math.floor(rand() * 2));
+    if (sk === 'showtime') skillNote('魔术师不看人传球，洛杉矶快攻一条龙，一波接一波！', Math.floor(rand() * 2));
     if (sk === 'paint') skillNote('奥尼尔篮下连续强打，你们的内线被打穿了！', 1);
-    if (sk === 'rock') skillNote('马刺几乎不犯错，这场比赛很难打出爆冷。');
+    if (sk === 'rock') skillNote('圣安东尼奥几乎不犯错，这场比赛很难打出爆冷。');
     if (bond && bondWho.size) notes.push({ side: 0, text: `【羁绊】${opts.bondText || '首发同队'}，这 ${bondWho.size} 人能力 +${bond}！`, bold: true, skill: true, pre: true });
     if (L.bond) notes.push({ side: 1, text: `【羁绊】${nick(L.team)}首发 5 人同队，首发 5 人能力 +${L.bond}！`, bold: true, pre: true });
     const mods = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, ptsMul: 1 };
@@ -458,7 +458,7 @@
     if (sk === 'comeback' && !tail && final[1] < final[0] && final[0] - final[1] <= 5 && rand() < 0.6) {
       final[1] += 3 + Math.floor(rand() * 4);
       if (final[0] === final[1]) final[1] += 1;
-      skillNote('三节打完骑士还落后，詹姆斯第四节接管比赛，骑士疯狂反扑！', 3);
+      skillNote('三节打完克利夫兰还落后，詹姆斯第四节接管比赛，疯狂反扑！', 3);
       bossHit = true;
     }
     // 神「最后一投」：你只领先 1~3 分 → 最后一攻前公牛落后 1 分，乔丹最后 2 秒绝杀（麦迪奇迹优先）
@@ -685,9 +685,8 @@
     return parts.length > 1 ? parts[parts.length - 1] : name;
   };
   const pickFrom = (arr, rand) => arr[Math.floor(rand() * arr.length)];
-  // 队名简称：「纽约尼克斯」→「尼克斯」
-  const NICKS = ['凯尔特人', '76人', '尼克斯', '篮网', '猛龙', '公牛', '骑士', '活塞', '步行者', '雄鹿', '老鹰', '黄蜂', '热火', '魔术', '奇才', '掘金', '森林狼', '雷霆', '开拓者', '爵士', '勇士', '快船', '湖人', '太阳', '国王', '独行侠', '小牛', '火箭', '灰熊', '鹈鹕', '马刺', '超音速', '子弹'];
-  const nick = (team) => NICKS.find((n) => team.endsWith(n)) || team;
+  // 队名简称：以前「纽约尼克斯」→「尼克斯」；2026-11-26 起球队只用城市名，原样返回
+  const nick = (team) => team;
 
   // ---------- 虎扑式文字直播 ----------
   // 从技术统计倒推整场：每个进球、助攻、篮板、抢断、盖帽、罚球都和数据表对得上，比分逐条累加

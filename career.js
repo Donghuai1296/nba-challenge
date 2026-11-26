@@ -188,8 +188,10 @@
 
   // ================= 现役联盟：2026-27 赛季 30 支球队完整阵容（league.js，数据来自虎扑） =================
   const LEAGUE = IS_NODE ? require('./league.js') : root.LEAGUE;
-  const TEAM_CN = { ATL: '老鹰', BOS: '凯尔特人', BKN: '篮网', CHA: '黄蜂', CHI: '公牛', CLE: '骑士', DAL: '独行侠', DEN: '掘金', DET: '活塞', GSW: '勇士', HOU: '火箭', IND: '步行者', LAC: '快船', LAL: '湖人', MEM: '灰熊', MIA: '热火', MIL: '雄鹿', MIN: '森林狼', NOP: '鹈鹕', NYK: '尼克斯', OKC: '雷霆', ORL: '魔术', PHI: '76人', PHX: '太阳', POR: '开拓者', SAC: '国王', SAS: '马刺', TOR: '猛龙', UTA: '爵士', WAS: '奇才' };
-  const CITY = { ATL: '亚特兰大老鹰', BOS: '波士顿凯尔特人', BKN: '布鲁克林篮网', CHA: '夏洛特黄蜂', CHI: '芝加哥公牛', CLE: '克利夫兰骑士', DAL: '达拉斯独行侠', DEN: '丹佛掘金', DET: '底特律活塞', GSW: '金州勇士', HOU: '休斯顿火箭', IND: '印第安纳步行者', LAC: '洛杉矶快船', LAL: '洛杉矶湖人', MEM: '孟菲斯灰熊', MIA: '迈阿密热火', MIL: '密尔沃基雄鹿', MIN: '明尼苏达森林狼', NOP: '新奥尔良鹈鹕', NYK: '纽约尼克斯', OKC: '俄克拉荷马城雷霆', ORL: '奥兰多魔术', PHI: '费城 76 人', PHX: '菲尼克斯太阳', POR: '波特兰开拓者', SAC: '萨克拉门托国王', SAS: '圣安东尼奥马刺', TOR: '多伦多猛龙', UTA: '犹他爵士', WAS: '华盛顿奇才' };
+  // 球队一律只用城市名（队名、队徽是 NBA 的注册商标，2026-11-26 用户定：避开版权风险）。
+  // 洛杉矶有两支队，现役联盟里用 L / C 区分；冠军队只有洛杉矶 L 夺过冠，直接写「洛杉矶」
+  const TEAM_CN = { ATL: '亚特兰大', BOS: '波士顿', BKN: '布鲁克林', CHA: '夏洛特', CHI: '芝加哥', CLE: '克利夫兰', DAL: '达拉斯', DEN: '丹佛', DET: '底特律', GSW: '金州', HOU: '休斯顿', IND: '印第安纳', LAC: '洛杉矶C', LAL: '洛杉矶L', MEM: '孟菲斯', MIA: '迈阿密', MIL: '密尔沃基', MIN: '明尼苏达', NOP: '新奥尔良', NYK: '纽约', OKC: '俄克拉荷马城', ORL: '奥兰多', PHI: '费城', PHX: '菲尼克斯', POR: '波特兰', SAC: '萨克拉门托', SAS: '圣安东尼奥', TOR: '多伦多', UTA: '犹他', WAS: '华盛顿' };
+  const CITY = TEAM_CN; // 以前是「城市 + 队名」全称，现在和 TEAM_CN 一样
   const WEST = ['DAL', 'DEN', 'GSW', 'HOU', 'LAC', 'LAL', 'MEM', 'MIN', 'NOP', 'OKC', 'PHX', 'POR', 'SAC', 'SAS', 'UTA'];
   const nameKey = (n) => n.replace(/[-·・\s]/g, '');
   // 开局能选的 13 位超级明星（中场投篮时主持人问你最喜欢谁）：评分全部 95+，东契奇和文班最高 100
