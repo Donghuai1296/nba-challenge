@@ -992,12 +992,14 @@ function showResult(r) {
     </section>
     <section class="card">
       <div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-t="0">我的球队</button><button role="tab" aria-selected="false" data-t="1">${L.year} ${esc(short(L.team))}</button></div>
-      <div id="boxwrap">${boxTable(r.box[0])}</div>
+      <div id="boxwrap"><div data-box="0">${boxTable(r.box[0])}</div><div data-box="1" hidden>${boxTable(r.box[1])}</div></div>
     </section>
     ${actions}`;
+  // 两队数据表一开始都画好，标签只切换显示（不在点击时往页面写 HTML——虎扑安全检测把点击时重写数据表
+  //   列为需人工复核，2026-11-26 改）
   after.querySelectorAll('[role=tab]').forEach((b) => (b.onclick = () => {
     after.querySelectorAll('[role=tab]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
-    document.getElementById('boxwrap').innerHTML = boxTable(r.box[Number(b.dataset.t)]);
+    after.querySelectorAll('#boxwrap [data-box]').forEach((x) => (x.hidden = x.dataset.box !== b.dataset.t));
   }));
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on('draw', tenDraw);

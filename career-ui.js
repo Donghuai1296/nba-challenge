@@ -298,24 +298,28 @@ function lookPage(star, next) {
   const code = C.teamOfStar(star).team;
   const { kit } = Avatar.kitOf({ name: build.name, team: code, from: '现役', season: '本季', isMe: true, num: 7 });
   if (build.look == null) build.look = 0;
-  const big = (i) => `${Faces.svg(i, kit, { bare: true })}<div class="lc-name"><small>${esc(build.name)}</small><b>${esc(Faces.LOOKS[i].name)}</b></div>`;
-  const okText = (i) => `就选「${esc(Faces.LOOKS[i].name)}」，进入联盟`;
+  // 大卡：15 个造型一开始全部画好，点小卡只切换显示哪一张（不在点击时往页面写 HTML——
+  //   虎扑安全检测把点击时重写大卡列为需人工复核，2026-11-26 用户贴来让改）
+  const big = (i) => `<div class="lb" data-i="${i}"${i === build.look ? '' : ' hidden'}>${Faces.svg(i, kit, { bare: true })}<div class="lc-name"><small>${esc(build.name)}</small><b>${esc(Faces.LOOKS[i].name)}</b></div></div>`;
+  const okText = (i) => `就选「${Faces.LOOKS[i].name}」，进入联盟`; // 纯文字，用 textContent 写
   app.innerHTML = `<p class="eyebrow">🪞 进入联盟之前</p><h2>选择你的造型</h2>
-    <div class="look-stage"><div class="look-card done" id="lookBig" style="--c1:${kit.primary}">${big(build.look)}</div></div>
+    <div class="look-stage"><div class="look-card done" id="lookBig" style="--c1:${kit.primary}">${Faces.LOOKS.map((L, i) => big(i)).join('')}</div></div>
     <div class="look-grid">${Faces.LOOKS.map((L, i) => `<button class="look-thumb${i === build.look ? ' sel' : ''}" data-i="${i}" style="--c1:${kit.primary}" aria-label="${esc(L.name)}">
       ${Faces.svg(i, kit, { bare: true })}<span>${esc(L.name)}</span></button>`).join('')}</div>
-    <button class="btn btn-primary sticky-cta" id="lookOk">${okText(build.look)}</button>`;
+    <button class="btn btn-primary sticky-cta" id="lookOk"></button>`;
+  const card = document.getElementById('lookBig');
+  const okBtn = document.getElementById('lookOk');
+  okBtn.textContent = okText(build.look);
   app.querySelectorAll('.look-thumb').forEach((b) => (b.onclick = () => {
     const i = Number(b.dataset.i);
     if (i === build.look) return;
     build.look = i;
-    const card = document.getElementById('lookBig');
-    card.innerHTML = big(i);
+    card.querySelectorAll('.lb').forEach((x) => (x.hidden = Number(x.dataset.i) !== i));
     card.classList.remove('done'); void card.offsetWidth; card.classList.add('done'); // 换人时大卡弹一下
     app.querySelectorAll('.look-thumb').forEach((x) => x.classList.toggle('sel', x === b));
-    document.getElementById('lookOk').innerHTML = okText(i);
+    okBtn.textContent = okText(i);
   }));
-  document.getElementById('lookOk').onclick = next;
+  okBtn.onclick = next;
 }
 function makeMe() {
   // 每项和位置保底取高的（不会出现 D），隐藏能力原样
@@ -944,11 +948,21 @@ function medalPage() {
 function medalBook() {
   const owned = new Set(run.passives || []);
   const keys = Object.keys(E.PASSIVES);
-  const group = (title, list) => `<div class="mb-group"><div class="spread"><b>${title}</b><small class="muted">${list.filter((k) => owned.has(k)).length} / ${list.length}</small></div>
-    <div class="mb-list">${list.map((k) => { const p = E.PASSIVES[k]; return `<div class="mb-item ${owned.has(k) ? 'own' : ''} ${p.rare ? 'rare' : ''}"><span class="mb-ico">${PASSIVE_ICON[k] || '🏅'}</span><span><b>${esc(p.name)}</b><small>${esc(short(p.star))}</small></span><em>${esc(p.desc)}</em></div>`; }).join('')}</div></div>`;
+  const group = (title, list) => `<div class="mb-group"><div class="spread"><b>${title}</b><small class="muted mb-count">${list.filter((k) => owned.has(k)).length} / ${list.length}</small></div>
+    <div class="mb-list">${list.map((k) => { const p = E.PASSIVES[k]; return `<div class="mb-item ${owned.has(k) ? 'own' : ''} ${p.rare ? 'rare' : ''}" data-k="${esc(k)}"><span class="mb-ico">${PASSIVE_ICON[k] || '🏅'}</span><span><b>${esc(p.name)}</b><small>${esc(short(p.star))}</small></span><em>${esc(p.desc)}</em></div>`; }).join('')}</div></div>`;
   return `<section class="card medal-book"><h3>勋章图鉴</h3>
     ${group('★ 传奇勋章', keys.filter((k) => E.PASSIVES[k].rare))}${group('普通勋章', keys.filter((k) => !E.PASSIVES[k].rare))}
     <p class="small muted">每打赢 ${C.PASSIVE_EVERY} 关解锁 ${C.PASSIVE_DRAWS} 枚，三选一（每枚传奇 ${Math.round(C.LEGEND_PASSIVE_RATE * 100)}%）</p></section>`;
+}
+// 选完勋章后图鉴跟着变：只改「已拥有」的样式和计数（不重写 HTML，和数据表、造型大卡一样，2026-11-26）
+function refreshMedalBook(book) {
+  const owned = new Set(run.passives || []);
+  book.querySelectorAll('.mb-group').forEach((g) => {
+    const items = [...g.querySelectorAll('.mb-item[data-k]')];
+    items.forEach((el) => el.classList.toggle('own', owned.has(el.dataset.k)));
+    const c = g.querySelector('.mb-count');
+    if (c) c.textContent = `${items.filter((el) => owned.has(el.dataset.k)).length} / ${items.length}`;
+  });
 }
 // 10 连抽：一叠卡背 → 点开始，在页面里发牌翻牌 → 一键替换并签约
 function cardStage(stage) {
@@ -1079,7 +1093,7 @@ function medalStage(stage) {
     const ml = document.getElementById('dcMedal');
     if (ml) { ml.textContent = `剩 ${run.passivePending} 次`; ml.classList.toggle('has', !!run.passivePending); }
     const book = document.getElementById('owned');
-    if (book) book.innerHTML = medalBook();
+    if (book) refreshMedalBook(book);
     setNav('medal'); // 红点数字跟着变
     const again = document.getElementById('again');
     if (again) again.onclick = () => drawCenter('medal');
@@ -1900,7 +1914,8 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .look-thumb.sel{border-color:#FFD54A;box-shadow:0 0 0 2px #FFD54A,0 0 12px rgba(255,213,74,.4)}.look-thumb.sel span{color:#FFD54A;font-weight:800}
 .look-stage{display:flex;justify-content:center;padding:2px 0}
 .look-card{--c1:#3A4766;position:relative;width:min(50vw,200px);aspect-ratio:3/4.1;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,var(--c1),#070A12 88%);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 78%,#000),#070A12 88%);border:2px solid rgba(255,255,255,.12)}
-.look-card>svg{position:absolute;left:0;top:6%;width:100%;height:78%}
+.look-card>svg,.look-card .lb>svg{position:absolute;left:0;top:6%;width:100%;height:78%}
+.look-card .lb{display:contents}.look-card .lb[hidden]{display:none}
 .look-card.done{border-color:#FFD54A;box-shadow:0 0 0 3px rgba(255,213,74,.25),0 0 34px rgba(255,213,74,.4);animation:lc-pop .4s cubic-bezier(.2,1.6,.4,1)}
 .lc-name{position:absolute;left:0;right:0;bottom:0;padding:8px 6px 10px;text-align:center;background:rgba(5,8,15,.9)}
 .lc-name small{display:block;font-size:12px;color:#AAB4C6}.lc-name b{display:block;font-family:var(--display);font-size:24px;letter-spacing:.04em;color:#fff}
