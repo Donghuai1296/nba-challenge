@@ -487,9 +487,11 @@ async function seasonStory() {
   let skip = false;
   document.getElementById('skip').onclick = () => (skip = true);
   for (const l of lines) {
+    if (!box.isConnected) return; // 逐行显示期间页面被换掉了（2026-11-26 异常错误率修复：不再去找已经不在的按钮）
     box.insertAdjacentHTML('beforeend', l);
     if (!skip) await wait(reduceMotion ? 100 : 320);
   }
+  if (!box.isConnected) return;
   document.getElementById('skip').remove();
   document.getElementById('after').innerHTML = `<button class="btn btn-primary" id="next">打开虎扑看看大家怎么说</button>`;
   document.getElementById('next').onclick = () => go(hupu);
@@ -1048,11 +1050,12 @@ function medalStage(stage) {
         page.classList.add('quake', 'legend-hit');
       }
       await wait(legend ? 450 : 120);
+      if (!page.isConnected) { drawing = false; return; } // 动画期间页面被换掉了：停下（三枚已存进 run.passiveOffer，回来还能选）
     }
     drawing = false;
     phase = 'open';
-    document.getElementById('mpTitle').textContent = '选择你的勋章';
-    document.getElementById('mpSub').textContent = '三选一，佩戴后永久生效';
+    page.querySelector('#mpTitle').textContent = '选择你的勋章';
+    page.querySelector('#mpSub').textContent = '三选一，佩戴后永久生效';
     medals.querySelectorAll('.medal').forEach((el) => (el.onclick = () => {
       if (phase !== 'open') return;
       sel = Number(el.dataset.i);
