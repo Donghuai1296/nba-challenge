@@ -1465,12 +1465,31 @@ endScreen = function (won) {
 };
 
 // ---------- 首页改成生涯模式 ----------
-// 首页的 Boss 墙：五大 Boss「魔神皇佛鲨」，按出场顺序（第 6、12、18、24、30 关）
+// 首页的 Boss 墙：五大 Boss，按出场顺序（第 6、12、18、24、30 关）
+// 2026-11-26 用户：「把黄色字体的魔鲨皇佛神去掉，五名球员都可以加点特效」——每人一圈自己颜色的转动光环 + 呼吸光晕，
+//   头像下面是第几关（打过的写「已推倒」）；下面轮流放他们的嘲讽，点头像换成他说
+const HB_FX = { mo: ['#FDB927', '#A45CFF'], sha: ['#39C6FF', '#6A3DE8'], huang: ['#FFB81C', '#C8143E'], fo: ['#DDE5EE', '#2ED3A6'], shen: ['#FF4D3D', '#FFD54A'] };
 function homeBosses() {
   const list = E.LEVELS.filter((L) => L.boss).map((L) => ({ L, b: L.boss, p: L.roster.find((x) => x.name === L.boss.star) || L.roster[0] }));
-  return `<section class="card home-boss"><div class="spread"><h3>五大 Boss · 魔神皇佛鲨</h3><small class="muted">每 6 关一位</small></div>
-    <div class="hb-grid">${list.map(({ L, b, p }) => `<div class="hb${L.index === TOTAL - 1 ? ' last' : ''}"><span class="hb-glyph">${b.glyph}</span><div class="hb-av">${Avatar.avatarSVG(p)}</div><b>${esc(b.nick)}</b><small>${L.year}<br>${esc(E.nick(L.team))}</small><small class="hb-lv">第 ${L.index + 1} 关</small></div>`).join('')}</div></section>`;
+  return `<section class="card home-boss"><div class="spread"><h3>五大 Boss</h3><small class="muted">你倒在谁手里？</small></div>
+    <div class="hb-grid">${list.map(({ L, b, p }, i) => {
+      const [c1, c2] = HB_FX[b.key] || ['#FFD54A', '#F28C28'];
+      const down = best > L.index; // best = 打赢过的关数
+      return `<button class="hb" data-i="${i}" style="--c1:${c1};--c2:${c2};--d:${(i * 0.13).toFixed(2)}s" aria-label="${esc(b.nick)}，第 ${L.index + 1} 关">
+        <span class="hb-ring"><span class="hb-av">${Avatar.avatarSVG(p)}</span><i class="hb-lv${down ? ' down' : ''}">${down ? '已推倒' : `第${L.index + 1}关`}</i></span>
+        <b>${esc(b.nick)}</b><small>${L.year}<br>${esc(E.nick(L.team))}</small></button>`;
+    }).join('')}</div>
+    <p class="hb-say" id="hbSay" aria-live="polite"></p><p class="hb-tip">点头像，听听他们怎么嘲讽你</p></section>`;
 }
+// 首页「步行街热议」：轮流放几个吵了很多年的话题（用户 11-26：「要求虎扑口吻，有话题感」）。只写球员，不写队名
+const HOT_TOPICS = [
+  '96 年的乔丹和 17 年的库里，谁更强？',
+  '1 比 3 逆转，是含金量最高的总冠军吗？',
+  '巅峰大鲨鱼，今天有人防得住吗？',
+  '石佛，是不是历史第一大前？',
+  'Showtime 放到今天，还能打吗？',
+  '卫冕冠军纽约，能排进历史前十吗？',
+];
 // 首页（2026-11-19）：标题 → 一句话「挑战 30 支历届总冠军球队，看看你能闯几关」→ 挑战介绍（中场投篮 → 你自己的球员 → 30 支冠军）
 //   → 你的纪录 → 守关 Boss 头像墙；「开始挑战」一直贴在屏幕底部，点了直接进中场投篮（halftime）
 //   有存档时「重新开始」要点两次，免得手滑清档；字体好看、不介绍玩法、不要「普通 JR 篮球梦」都是用户要求
@@ -1482,21 +1501,47 @@ home = function () {
     <section class="home-hero pop">
       <h1 class="hh-title"><span>诸神</span><b>黄昏</b></h1>
       <p class="hh-sub">王 朝 终 结 者</p>
-      <p class="hh-pitch">一场意外，职业联盟的大门为你打开。<br>面对 <b>${TOTAL} 关王朝球队</b><em>你能坚持到第几关？</em></p>
+      <p class="hh-pitch">一张球票，一场意外，<br>你从看台走进了职业联盟。<em>${TOTAL} 支王朝，你能掀翻几支？</em></p>
     </section>
-    <section class="card challenge pop">
-      <p class="eyebrow">⚔️ 挑战王朝</p>
-      <p>这条路上，有<b>成长</b>，有<b>收获</b>，有<b>挑战</b>，<span class="nw">也有<b>失败</b>。</span></p>
-      <p>每一关，都是一支历史上的<b>总冠军球队</b>。</p>
+    <section class="card challenge hot pop">
+      <p class="eyebrow">🔥 步行街热议</p>
+      <div class="hot-q"><span id="hotQ"></span></div>
+      <p>吵了二十年没结论？<b>${TOTAL} 支历史总冠军球队</b>全在这，<span class="nw">亲自打一遍就知道。</span></p>
+      <p>有成长，有收获，有被暴扣，<span class="nw">也有被绝杀。</span></p>
       <div class="ch-facts"><span><b class="num">${TOTAL}</b>关冠军球队</span><span><b class="num">${E.BOSSES.length}</b>大 Boss</span><span><b class="num">3</b>条命</span></div>
     </section>
     <p class="home-rec">🏅 你的纪录：${rec}</p>
     ${homeBosses()}
-    <p class="home-foot">球员数据参考虎扑 · 数值纯属娱乐<br>输了别去步行街骂我，通关记得回来晒图</p>
+    <p class="home-foot">数据来自虎扑 · 评分纯属娱乐，不服来辩<br>输了别去步行街骂我，通关记得回来晒图</p>
     ${run ? `<button class="link-btn home-restart" id="new">重新开始（会清掉当前进度）</button>` : ''}
     <div class="home-cta">
-      ${run ? `<button class="btn btn-primary btn-big" id="resume">继续挑战<small>${where}</small></button>` : `<button class="btn btn-primary btn-big" id="new">开始挑战<small>从一记中场投篮开始</small></button>`}
+      ${run ? `<button class="btn btn-primary btn-big" id="resume">继续挑战<small>${where}</small></button>` : `<button class="btn btn-primary btn-big" id="new">开始挑战<small>别吵了，球场上见</small></button>`}
     </div>`;
+  // 热议话题每 3.6 秒换一个；Boss 嘲讽每 4 秒换一位，点了哪位就停在他（离开首页后计时器自己停）
+  const hotQ = document.getElementById('hotQ');
+  let qi = Math.floor(Math.random() * HOT_TOPICS.length);
+  hotQ.textContent = `「${HOT_TOPICS[qi]}」`;
+  const qt = setInterval(() => {
+    if (!document.body.contains(hotQ)) { clearInterval(qt); return; }
+    hotQ.classList.add('out');
+    setTimeout(() => { qi = (qi + 1) % HOT_TOPICS.length; hotQ.textContent = `「${HOT_TOPICS[qi]}」`; hotQ.classList.remove('out'); }, 320);
+  }, 3600);
+  const hbs = [...app.querySelectorAll('.hb')];
+  const bosses = E.LEVELS.filter((L) => L.boss).map((L) => L.boss);
+  const say = document.getElementById('hbSay');
+  const speak = (i) => {
+    const b = bosses[i];
+    hbs.forEach((el, k) => el.classList.toggle('on', k === i));
+    say.style.setProperty('--sc', hbs[i].style.getPropertyValue('--c1'));
+    say.innerHTML = `<b>${esc(short(b.star))}</b>：${esc(b.taunts[Math.floor(Math.random() * b.taunts.length)])}`;
+  };
+  let si = bosses.length - 1;
+  speak(si);
+  const st = setInterval(() => {
+    if (!document.body.contains(say)) { clearInterval(st); return; }
+    si = (si + 1) % bosses.length; speak(si);
+  }, 4000);
+  hbs.forEach((el, i) => (el.onclick = () => { clearInterval(st); speak(i); }));
   if (run) document.getElementById('resume').onclick = () => go(run.signing ? signing : run.career && !run.story ? seasonStory : hub);
   const nb = document.getElementById('new');
   let sure = !run; // 有存档：第一次点只是提醒，再点一次才清档
@@ -1885,14 +1930,30 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .btn-big{display:grid;gap:1px;padding:13px 16px 11px;font-size:22px;border-radius:15px;background:linear-gradient(180deg,#FFAE55,#F28C28 55%,#DD6A1A);box-shadow:0 8px 26px rgba(242,140,40,.38),inset 0 1px 0 rgba(255,255,255,.35)}
 .btn-big small{font-family:var(--body);font-size:12px;font-weight:700;letter-spacing:0;opacity:.75}
 .home-boss h3,.home-how h3{margin:0;font-size:16px}
-.hb-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 4px}
-.hb{display:grid;justify-items:center;gap:2px;text-align:center;min-width:0}
-.hb-av{width:52px;height:52px;border-radius:50%;overflow:hidden;background:#fff;border:2px solid rgba(255,255,255,.25)}
-.hb.last .hb-av{border-color:#FFD54A;box-shadow:0 0 12px rgba(255,213,74,.5)}
-.hb b{font-size:12px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 首页「步行街热议」：话题轮播（淡出 → 换字 → 淡入） */
+.hot{background:linear-gradient(160deg,#3A1F1A,#1B2238 58%,#172033);border-color:rgba(255,120,60,.28)}
+.hot .eyebrow{color:#FF8A4C}
+.hot-q{min-height:2.75em;font-family:var(--display);font-size:22px;line-height:1.35;color:#fff;text-wrap:balance;text-shadow:0 0 16px rgba(255,120,60,.35)}
+.hot-q span{display:block;transition:opacity .3s,transform .3s}.hot-q span.out{opacity:0;transform:translateY(6px)}
+/* 首页 Boss 墙：每人一圈自己颜色的转动光环 + 呼吸光晕，依次弹出；点中的放大、名字变色 */
+.hb-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px 4px;margin-top:4px}
+.hb{position:relative;display:grid;justify-items:center;gap:2px;text-align:center;min-width:0;padding:6px 0 2px;margin:0;background:none;border:0;color:inherit;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;animation:hb-in .55s cubic-bezier(.2,.9,.3,1.3) both;animation-delay:var(--d)}
+.hb-ring{position:relative;isolation:isolate;display:grid;place-items:center;width:58px;height:58px;margin-bottom:9px;transition:transform .25s}
+.hb-ring::before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;border-radius:50%;background:conic-gradient(var(--c1),var(--c2),var(--c1),var(--c2),var(--c1));animation:hb-spin 3.2s linear infinite;animation-delay:calc(var(--d) * -5)}
+.hb-ring::after{content:"";position:absolute;top:-8px;right:-8px;bottom:-8px;left:-8px;z-index:-1;border-radius:50%;background:radial-gradient(circle,var(--c1) 0%,transparent 66%);opacity:.4;animation:hb-glow 2.4s ease-in-out infinite;animation-delay:calc(var(--d) * -4)}
+.hb-av{position:relative;width:52px;height:52px;border-radius:50%;overflow:hidden;background:#fff}
+.hb-lv{position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);font-style:normal;font-size:9.5px;font-weight:800;line-height:1;padding:3px 6px;border-radius:999px;white-space:nowrap;color:#140A02;background:linear-gradient(90deg,var(--c1),var(--c2));box-shadow:0 2px 6px rgba(0,0,0,.45)}
+.hb-lv.down{color:#06210F;background:#5BE08A}
+.hb b{font-size:12px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s}
 .hb small{font-size:10px;color:var(--muted);white-space:nowrap}
-.hb{position:relative;padding-top:4px}.hb .hb-lv{color:#FFC58A}
-.hb-glyph{font-family:var(--display);font-size:22px;line-height:1;color:#FFD54A;text-shadow:0 0 12px rgba(255,213,74,.5)}
+.hb.on .hb-ring{transform:scale(1.1)}.hb.on b{color:var(--c1)}
+.hb-say{min-height:2.9em;margin:8px 0 0;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.05);border-left:3px solid var(--sc,#FFD54A);font-size:13px;line-height:1.55;color:#E6ECF5}
+.hb-say b{color:var(--sc,#FFD54A)}
+.hb-tip{margin:0;text-align:center;font-size:11px;color:var(--muted)}
+@keyframes hb-spin{to{transform:rotate(1turn)}}
+@keyframes hb-glow{50%{opacity:.85;transform:scale(1.1)}}
+@keyframes hb-in{from{opacity:0;transform:translateY(12px) scale(.8)}}
+@media (prefers-reduced-motion:reduce){.hb,.hb-ring::before,.hb-ring::after{animation:none}.hot-q span{transition:none}}
 /* 文字按钮看起来不变，点按区域放大到约 44px 高（手机上好点） */
 .link-btn{padding:12px 6px;margin:-12px -6px}#back.muted,#home.muted{padding:12px 10px;margin:-12px -10px}#speed{padding:7px 12px}
 .home-how ol{margin:0;padding-left:20px;display:grid;gap:7px;font-size:13.5px;color:var(--muted);line-height:1.5}
