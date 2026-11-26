@@ -591,9 +591,9 @@ showResult = function (r) {
   if (r.win && run.level % C.PASSIVE_EVERY === 0 && run.level < TOTAL) run.passivePending = (run.passivePending || 0) + 1;
   // 每赢一场：幸运值 +7（满 50 / 100 得宝箱）
   const luckWin = r.win ? addLuck(LUCK_WIN) : null;
-  // 挑战失败（还有命）：获得一次选秀机会
-  const draftNow = !r.win && run.lives > 0 && DRAFT_YEARS().length;
-  if (draftNow) run.draftPending = (run.draftPending || 0) + 1;
+  // 挑战失败（还有命）：补偿一次 10 连抽（11-26 用户要求；以前是进传奇选秀大会挑 1 人，和别的环节不协调）
+  const loseDraw = !r.win && run.lives > 0;
+  if (loseDraw) run.draws = (run.draws || 0) + 1;
   save();
   const avg = (k) => (st.g ? ((st[k] || 0) / st.g).toFixed(1) : '0.0');
   const trig = (r.triggers || []).map((k) => E.PASSIVES[k]);
@@ -650,70 +650,22 @@ showResult = function (r) {
     db.textContent = `🎴 去抽取：${drawLabel()}`;
     db.onclick = () => go(drawCenter, r.win && run.passivePending && run.level % C.PASSIVE_EVERY === 0 ? 'medal' : 'cards');
   }
-  // 输了：结算页最上面放选秀入口（不想现在选，回关卡大厅也能选）
-  if (draftNow) {
-    after.insertAdjacentHTML('afterbegin', `<button class="btn btn-gold draft-btn pop" id="toDraft">📋 挑战失败补偿：进入传奇选秀大会，选 1 名强力队友</button>`);
-    document.getElementById('toDraft').onclick = () => go(draftPage);
+  // 输了：结算页最上面放 10 连抽补偿入口（不想现在抽，之后在「抽卡」页也能抽）
+  if (loseDraw) {
+    after.insertAdjacentHTML('afterbegin', `<button class="btn btn-gold lose-draw-btn pop" id="toDraw">🎴 挑战失败补偿：送你一次 10 连抽</button>`);
+    document.getElementById('toDraw').onclick = () => go(drawCenter, 'cards');
   }
   setNav('play'); // 比赛打完，底部导航出来（直播时是收起的）
 };
 const drawLabel = () => [run.draws ? `10 连抽 ×${run.draws}` : '', run.passivePending ? `勋章 ×${run.passivePending}` : '', chestReady() ? `宝箱 ×${chestReady()}` : ''].filter(Boolean).join(' · ');
 
-// ---------- 挑战失败选秀：输球（还有命）后，从传奇选秀大会（1984 / 1996 / 2003）里选 1 名强力队友 ----------
-// 每次随机一届，前 30 顺位里出 10 人：前 10 顺位 3 人、11-30 顺位 7 人；数据来自虎扑（drafts.js）
-const DRAFT_YEARS = () => Object.keys(window.DRAFTS || {}).map(Number);
+// 宝箱候选里有三届传奇选秀（1984 / 1996 / 2003，drafts.js）的球员：转成球员卡
+// （以前输球后有「传奇选秀大会」挑 1 人，2026-11-26 改成 10 连抽补偿，选秀页已删）
 const shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 function draftee(year, d) {
   return { ...d, from: `${year} 选秀 · 第 ${d.pick} 顺位`, season: '选秀', draft: { year, pick: d.pick }, team: run.teamCode, realTeam: d.rookieTeam };
 }
-function draftPage() {
-  const years = DRAFT_YEARS();
-  if (!years.length || !run.draftPending) { go(hub); return; }
-  // 这次的 10 人先存起来（刷新也不会重新随机）
-  if (!run.draftOffer) {
-    const year = years[Math.floor(Math.random() * years.length)];
-    const list = window.DRAFTS[year];
-    const top = shuffleArr(list.filter((p) => p.pick <= 10)).slice(0, 3);
-    const rest = shuffleArr(list.filter((p) => p.pick > 10)).slice(0, 7);
-    run.draftOffer = { year, picks: [...top, ...rest].map((p) => p.pick).sort((a, b) => a - b), revealed: false };
-    save();
-  }
-  const offer = run.draftOffer;
-  const players = offer.picks.map((k) => draftee(offer.year, window.DRAFTS[offer.year].find((p) => p.pick === k)));
-  app.innerHTML = `${statusBar()}
-    <section class="draft-head pop"><p class="eyebrow">📋 挑战失败补偿</p>
-      <h2>${offer.year} 年选秀大会</h2>
-      <p class="muted small">前 10 顺位出 3 人、11-30 顺位出 7 人，选 1 人加入你的球队</p></section>
-    <div id="stage" class="dc-stage"></div>`;
-  setNav('play');
-  const stage = document.getElementById('stage');
-  if (!offer.revealed) {
-    drawCards(players, { host: stage, title: `${offer.year} 届新秀`, sub: '翻开看看这一届都有谁', done: '开始挑人' }).then(() => {
-      offer.revealed = true;
-      save();
-      draftPick(players, null);
-    });
-  } else draftPick(players, null);
-}
-// 挑人：点一张卡选中，再点「签下」
-function draftPick(players, sel) {
-  const offer = run.draftOffer;
-  const onTeam = (p) => run.team.some((x) => E.samePlayer(x.name, p.name)); // 不同译名也算同一人
-  const stage = document.getElementById('stage');
-  stage.innerHTML = `<div class="draft-grid">${players.map((p, i) => `<div class="draft-slot ${onTeam(p) ? 'dim' : ''}" data-i="${i}">
-      <small>第 ${p.pick} 顺位 · ${E.POS_LABEL[p.pos]}</small>${tallCard(shownAs(p), { badge: onTeam(p) ? '已在阵中' : `${offer.year}`, sel: sel === i })}
-      <span class="draft-line">${p.pts}/${p.reb}/${p.ast} · ${p.seasons} 季</span></div>`).join('')}</div>
-    <div class="mp-act">${sel === null ? '<p class="small muted" style="text-align:center">👆 点一名新秀（数据是他的生涯场均）</p>'
-      : `<button class="btn btn-gold" id="signDraft">签下 ${esc(players[sel].name)}（${offer.year} 第 ${players[sel].pick} 顺位 · 总评 ${players[sel].ovr}）</button>`}</div>`;
-  stage.querySelectorAll('.draft-slot').forEach((el) => (el.onclick = () => {
-    const i = Number(el.dataset.i);
-    if (onTeam(players[i])) { toast('他已经在你的球队里了'); return; }
-    draftPick(players, i);
-  }));
-  const b = document.getElementById('signDraft');
-  if (b) b.onclick = () => signDraftee(players[sel]);
-}
-// 新人进队（选秀、宝箱共用）：换下同位置最弱的；同位置没人能换，就换替补席最弱的——
+// 新人进队（宝箱、Boss 卡共用）：换下同位置最弱的；同位置没人能换，就换替补席最弱的——
 // 2026-11-19 起替补不看位置：他加进来排好首发后，替补里总评最低的人被换下（E.replaceTarget）。被换下的人变成幸运值
 function bringIn(p) {
   const out = E.replaceTarget(run.team, p, coreNames()); // 开局选的明星不再是核心，也可以被换下（你自己永远不会被换）
@@ -722,16 +674,6 @@ function bringIn(p) {
   run.team = E.arrange(run.team, coreNames());
   return { out: out.x, luck: luckText(addLuck(luckFor(out.x))) };
 }
-function signDraftee(p) {
-  const r = bringIn(p);
-  if (!r) return;
-  run.draftPending = Math.max(0, (run.draftPending || 1) - 1);
-  run.draftOffer = null;
-  save();
-  toast(`签下 ${short(p.name)}（总评 ${p.ovr}），换下 ${short(r.out.name)}（${r.out.ovr}）${r.luck ? `；${r.luck}` : ''}`);
-  go(hub);
-}
-
 // ---------- 幸运宝箱：宝箱 = 10 名 85-95 球员自选 1 名；超级明星宝箱 = 10 名 95+ 球员自选 1 名 ----------
 // 候选：历届冠军球员（10 连抽卡池）+ 现役球员 + 三届传奇选秀；阵中已有的人（不同译名也算）不出现，同一个人只出一个版本
 const CHEST = {
@@ -1248,7 +1190,6 @@ hub = function () {
   // 待办：点一下直接去对应页面（底部导航上也有红点）
   const todo = [
     (run.bossCards || []).length ? ['bosscard', '👑', `Boss 球员卡${run.bossCards.length > 1 ? ` ×${run.bossCards.length}` : ''}`] : null,
-    run.draftPending && DRAFT_YEARS().length ? ['draft', '📋', `选秀大会${run.draftPending > 1 ? ` ×${run.draftPending}` : ''}`] : null,
     run.addPts ? ['pts', '🎯', `${run.addPts} 能力点待分配`] : null,
     run.signing ? ['cards', '✍️', '10 连抽待签约'] : run.draws ? ['cards', '🃏', `10 连抽 ×${run.draws}`] : null,
     chestReady() || run.chestOffer ? ['frag', '🎁', run.chestOffer ? '宝箱待挑人' : `宝箱 ×${chestReady()}`] : null,
@@ -1308,7 +1249,7 @@ hub = function () {
     toast(`你进入首发，${short(out.name)}去替补席`);
     go(hub);
   };
-  const TODO_PAGE = { bosscard: () => go(bossCardPage), draft: () => go(draftPage), pts: () => go(pointsPage), cards: () => go(cardsPage, 'cards'), frag: () => go(cardsPage, 'frag'), medal: () => go(medalPage) };
+  const TODO_PAGE = { bosscard: () => go(bossCardPage), pts: () => go(pointsPage), cards: () => go(cardsPage, 'cards'), frag: () => go(cardsPage, 'frag'), medal: () => go(medalPage) };
   app.querySelectorAll('[data-todo]').forEach((b) => (b.onclick = TODO_PAGE[b.dataset.todo]));
   document.getElementById('play').onclick = () => go(match);
   document.getElementById('toTeam').onclick = () => go(myTeam);
@@ -1461,7 +1402,7 @@ myTeam = function () {
 
 // ---------- 底部导航：比赛 / 阵容 / 加点 / 抽卡 / 勋章，随时切换；有待处理的事显示红色数字 ----------
 const NAV = [
-  { k: 'play', ic: '🏀', t: '比赛', page: () => hub, n: () => ((run.bossCards || []).length || (run.draftPending && DRAFT_YEARS().length) ? '!' : 0) },
+  { k: 'play', ic: '🏀', t: '比赛', page: () => hub, n: () => ((run.bossCards || []).length ? '!' : 0) },
   { k: 'team', ic: '👥', t: '阵容', page: () => myTeam, n: () => 0 },
   { k: 'pts', ic: '🎯', t: '加点', page: () => pointsPage, n: () => run.addPts || 0 },
   { k: 'cards', ic: '🃏', t: '抽卡', page: () => cardsPage, n: () => (run.draws || 0) + chestReady() + (run.signing || run.chestOffer ? 1 : 0) },
@@ -1750,13 +1691,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 @keyframes mIn{from{transform:rotateY(-90deg) scale(1.3)}to{transform:none}}
 @keyframes mWear{0%{transform:none}40%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
 @media (prefers-reduced-motion:reduce){.medal .m-art,.m-shine,.m-rays,.medal-page.quake{animation:none!important}}
-.draft-btn{background:linear-gradient(90deg,#4A7BFF,#8A5CFF);color:#fff;box-shadow:0 0 18px rgba(110,110,255,.4)}
-.draft-head{text-align:center;padding:14px 0 4px;border-radius:20px;background:radial-gradient(circle at 50% 30%,rgba(110,110,255,.25),transparent 65%)}
-.draft-head h2{font-size:26px;letter-spacing:.08em}.draft-head .eyebrow{color:#9fb0ff;letter-spacing:.2em;font-size:12px;margin:0}
-.draft-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0}
-.draft-slot{display:flex;flex-direction:column;gap:4px;min-width:0;cursor:pointer}.draft-slot>small{text-align:center;color:#9fb0ff;font-size:12px;font-weight:700}
-.draft-slot .tcard{flex:none;width:100%;max-width:none;min-width:0}.draft-slot.dim{opacity:.4;cursor:default}
-.draft-line{text-align:center;font-size:11px;color:var(--muted)}
+.lose-draw-btn{background:linear-gradient(90deg,#4A7BFF,#8A5CFF);color:#fff;box-shadow:0 0 18px rgba(110,110,255,.4)}
 .xp.pts-line{flex-wrap:wrap;gap:2px 10px;align-items:baseline}.pts-line b{color:#FFD54A;font-size:15px}.pts-line i{display:inline;font-style:normal}
 .lu-card.alloc{max-height:92vh;overflow:auto;gap:8px}.lu-card.alloc h3 em.up{color:#5EF2A0;font-style:normal}
 .al-left{color:#FFD54A;font-size:16px}
@@ -1976,6 +1911,12 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 
 // 旧存档补上球队简称（文字直播里用）
 if (run && run.career && !run.teamLabel && run.teamCode) run.teamLabel = C.TEAM_CN[run.teamCode];
+// 2026-11-26 挑战失败选秀改成 10 连抽：老存档里没用掉的选秀次数换成同样多次 10 连抽
+if (run && (run.draftPending || run.draftOffer)) {
+  run.draws = (run.draws || 0) + (run.draftPending || 0);
+  delete run.draftPending; delete run.draftOffer;
+  save();
+}
 // 旧存档里你的球员是 13 项能力（三分、中投、扣篮、护球、盖帽、关键……），换成新的 11 项：
 // 三分→3分、中投→2分、护球→控球，扣篮和盖帽合成弹跳（取高的），关键去掉；普通勋章的加成也一样换
 if (run && Array.isArray(run.team)) {
