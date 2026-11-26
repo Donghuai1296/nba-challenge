@@ -189,8 +189,8 @@
   // ================= 现役联盟：2026-27 赛季 30 支球队完整阵容（league.js，数据来自虎扑） =================
   const LEAGUE = IS_NODE ? require('./league.js') : root.LEAGUE;
   // 球队一律只用城市名（队名、队徽是 NBA 的注册商标，2026-11-26 用户定：避开版权风险）。
-  // 洛杉矶有两支队，现役联盟里用 L / C 区分；冠军队只有洛杉矶 L 夺过冠，直接写「洛杉矶」
-  const TEAM_CN = { ATL: '亚特兰大', BOS: '波士顿', BKN: '布鲁克林', CHA: '夏洛特', CHI: '芝加哥', CLE: '克利夫兰', DAL: '达拉斯', DEN: '丹佛', DET: '底特律', GSW: '金州', HOU: '休斯顿', IND: '印第安纳', LAC: '洛杉矶C', LAL: '洛杉矶L', MEM: '孟菲斯', MIA: '迈阿密', MIL: '密尔沃基', MIN: '明尼苏达', NOP: '新奥尔良', NYK: '纽约', OKC: '俄克拉荷马城', ORL: '奥兰多', PHI: '费城', PHX: '菲尼克斯', POR: '波特兰', SAC: '萨克拉门托', SAS: '圣安东尼奥', TOR: '多伦多', UTA: '犹他', WAS: '华盛顿' };
+  // 洛杉矶两支队：湖人叫「洛杉矶」，快船暂时叫「洛杉矶快艇」（用户 11-26 定）
+  const TEAM_CN = { ATL: '亚特兰大', BOS: '波士顿', BKN: '布鲁克林', CHA: '夏洛特', CHI: '芝加哥', CLE: '克利夫兰', DAL: '达拉斯', DEN: '丹佛', DET: '底特律', GSW: '金州', HOU: '休斯顿', IND: '印第安纳', LAC: '洛杉矶快艇', LAL: '洛杉矶', MEM: '孟菲斯', MIA: '迈阿密', MIL: '密尔沃基', MIN: '明尼苏达', NOP: '新奥尔良', NYK: '纽约', OKC: '俄克拉荷马城', ORL: '奥兰多', PHI: '费城', PHX: '菲尼克斯', POR: '波特兰', SAC: '萨克拉门托', SAS: '圣安东尼奥', TOR: '多伦多', UTA: '犹他', WAS: '华盛顿' };
   const CITY = TEAM_CN; // 以前是「城市 + 队名」全称，现在和 TEAM_CN 一样
   const WEST = ['DAL', 'DEN', 'GSW', 'HOU', 'LAC', 'LAL', 'MEM', 'MIN', 'NOP', 'OKC', 'PHX', 'POR', 'SAC', 'SAS', 'UTA'];
   const nameKey = (n) => n.replace(/[-·・\s]/g, '');

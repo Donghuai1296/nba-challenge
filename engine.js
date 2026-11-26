@@ -686,7 +686,8 @@
   };
   const pickFrom = (arr, rand) => arr[Math.floor(rand() * arr.length)];
   // 队名简称：以前「纽约尼克斯」→「尼克斯」；2026-11-26 起球队只用城市名，原样返回
-  const nick = (team) => team;
+  const SHORT = { 俄克拉荷马城: '俄城', 洛杉矶快艇: '快艇' }; // 小卡片上放不下的长名字
+  const nick = (team) => SHORT[team] || team;
 
   // ---------- 虎扑式文字直播 ----------
   // 从技术统计倒推整场：每个进球、助攻、篮板、抢断、盖帽、罚球都和数据表对得上，比分逐条累加

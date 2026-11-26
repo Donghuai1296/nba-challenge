@@ -23,12 +23,13 @@ if (run && window.Career) {
   const OLD = { 老鹰: 'ATL', 凯尔特人: 'BOS', 篮网: 'BKN', 黄蜂: 'CHA', 公牛: 'CHI', 骑士: 'CLE', 独行侠: 'DAL', 小牛: 'DAL', 掘金: 'DEN', 活塞: 'DET', 勇士: 'GSW', 火箭: 'HOU', 步行者: 'IND', 快船: 'LAC', 湖人: 'LAL', 灰熊: 'MEM', 热火: 'MIA', 雄鹿: 'MIL', 森林狼: 'MIN', 鹈鹕: 'NOP', 尼克斯: 'NYK', 雷霆: 'OKC', 魔术: 'ORL', '76 人': 'PHI', '76人': 'PHI', 太阳: 'PHX', 开拓者: 'POR', 国王: 'SAC', 马刺: 'SAS', 猛龙: 'TOR', 爵士: 'UTA', 奇才: 'WAS' };
   const CITIES = new Set(['', '洛杉矶', ...Object.values(window.Career.TEAM_CN)]);
   const nicks = Object.keys(OLD).sort((a, b) => b.length - a.length);
+  const INTERIM = { 洛杉矶L: '洛杉矶', 洛杉矶C: '洛杉矶快艇' }; // 11-26 当天中间版本的叫法
   const fix = (s) => {
+    if (INTERIM[s]) return INTERIM[s];
     const m = s.match(/^(\d{4} )?(.+)$/);
     const k = m && nicks.find((n) => m[2].endsWith(n) && CITIES.has(m[2].slice(0, -n.length).trim()));
     if (!k) return s;
-    const code = OLD[k];
-    return m[1] ? m[1] + (code === 'LAL' ? '洛杉矶' : window.Career.TEAM_CN[code]) : window.Career.TEAM_CN[code];
+    return (m[1] || '') + window.Career.TEAM_CN[OLD[k]];
   };
   let changed = 0;
   const walk = (o) => {
@@ -268,7 +269,7 @@ function miniCard(p, opts = {}) {
     ${p.bondPlus ? `<span class="mc-bond">🔗+${p.bondPlus}</span>` : ''}
     ${opts.badge ? `<span class="mc-badge">${opts.badge}</span>` : ''}
     <div class="mc-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
-    ${p.isMe ? '<span class="mc-me">我</span>' : ''}<b class="mc-name">${esc(short(p.name))}</b>
+    ${p.isMe ? '<span class="mc-me">我</span>' : ''}<b class="mc-name${short(p.name).length >= 6 ? ' xs' : short(p.name).length >= 5 ? ' sm' : ''}">${esc(short(p.name))}</b>
   </${tag}>`;
 }
 function toast(msg) {
@@ -369,7 +370,6 @@ function bondTeamOf(p) {
   if (p.from && p.from !== '现役' && /^\d{4}/.test(p.from)) {
     if (!NICK_CODE) {
       NICK_CODE = Object.fromEntries(Object.entries(window.Career ? window.Career.TEAM_CN : {}).map(([c, n]) => [n, c]));
-      NICK_CODE['洛杉矶'] = 'LAL'; // 冠军队里的「洛杉矶」只有 L
     }
     return NICK_CODE[E.nick(p.from.replace(/^\d{4}\s*/, ''))];
   }
@@ -452,17 +452,19 @@ function gcardFront(p0) {
     <div class="g-ring">${ringSVG(p.ovr)}</div>
     <div class="g-meta">${num !== undefined && num !== null && num !== '' ? `#${esc(num)}<br>` : ''}${E.POS_LABEL[p.pos] || ''}</div>
     <div class="g-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
-    <div class="g-name"><div class="rar">${rarityOf(p).label}</div><div class="nm">${esc(p.name)}</div><div class="st">${p.from && p.from !== '现役' ? esc(p.from.replace(/^\d{2}(\d{2}) /, "'$1 ")) : '现役'}</div></div>`;
+    <div class="g-name"><div class="rar">${rarityOf(p).label}</div><div class="nm"><span class="nm-l">${esc(p.name)}</span><span class="nm-s">${esc(short(p.name))}</span></div><div class="st">${p.from && p.from !== '现役' ? esc(p.from.replace(/^\d{2}(\d{2}) (.+)$/, (m, y, t) => `'${y} ${E.nick(t)}`)) : '现役'}</div></div>`;
 }
 function drawCards(players, { title, sub = '', done = '收下', host = null, walk = true }) {
   return new Promise((resolve) => {
     const n = players.length;
-    const cols = n === 1 ? 1 : n <= 4 ? 2 : n <= 8 ? 4 : 5;
+    // 10 张：小屏（≤420 宽）一行 5 张太小、名字盖住整张照片 → 一行 4 张
+    const wrap = n > 8 && typeof matchMedia === 'function' && matchMedia('(max-width: 420px)').matches;
+    const cols = n === 1 ? 1 : n <= 4 ? 2 : n <= 8 || wrap ? 4 : 5;
     const ov = document.createElement('div');
     ov.className = host ? 'gacha inpage' : 'gacha';
     ov.innerHTML = `
       <div><h2>${esc(title)}</h2>${sub ? `<p class="sub">${esc(sub)}</p>` : ''}</div>
-      <div class="deck ${n > 4 ? 'many' : ''}" style="--cols:${cols}">
+      <div class="deck ${n > 4 ? 'many' : ''}${wrap ? ' wrap' : ''}" style="--cols:${cols}">
         ${players.map((p, i) => `<div class="gcard ${rarityOf(p).cls}" data-i="${i}" role="button" aria-label="翻开第 ${i + 1} 张卡">
             <div class="inner">
               <div class="face back"></div>
@@ -667,7 +669,7 @@ function hub() {
         <div class="trow bench" style="margin-top:8px">${L.roster.slice(5).map((x) => tallCard(x)).join('')}</div>
       </details>
       <div class="stat-grid${L.bond ? ' has-bond' : ''}">
-        <div><b>${fmt1(L.raw)}</b><span>阵容实力</span></div>
+        <div><b>${fmt1(L.raw)}</b><span>对手阵容</span></div>
         <div><b>${L.boost >= 0 ? '+' : ''}${fmt1(L.boost)}</b><span>${run.level === TOTAL - 1 ? '72 胜光环' : L.boost < 0 ? '赛季初状态' : '状态加成'}</span></div>
         ${L.bond ? `<div class="bond-stat"><b>+${fmt1(L.bondPower)}</b><span>🔗 羁绊</span></div>` : ''}
         <div><b>${fmt1(L.power)}</b><span>对手实力</span></div>

@@ -446,13 +446,13 @@ function teamStory(me, star, t, d) {
       <p class="eyebrow">2026 年夏天 · ${esc(t.city)}</p>
       ${me.origin === 'halftime' ? `<p>那记砸中 ${esc(short(star.name))} 脑袋的三不沾，在网上播放破了千万。第二天，${esc(t.cn)}总经理亲自打来电话：<b>“${esc(short(star.name))}点名要你。”</b></p>
         ${sigOf(me) ? `<p>公开试训上，你的${esc(sigOf(me).name)}让全场安静了三秒。</p>` : ''}` : ''}
-      <p>你签下新秀合同，加入了 <b>${esc(t.city)}</b>，和 <b>${esc(star.name)}</b> 成了队友。</p>
+      <p>你签下新秀合同，加入了 <b>${esc(t.city)}</b>，和 <b class="nw">${esc(star.name)}</b> 成了队友。</p>
       <p>训练营第一天，你拎着<b>一箱轩尼诗</b>敲开了${esc(t.cn)}主教练办公室的门。</p>
       <p class="quote">“孩子，我看人从来只看态度。”</p>
       ${d.meStarts
         ? `<p>你没说话，只是微微一笑。第二天，首发名单上赫然写着你的名字：<b>首发${E.POS_LABEL[me.pos]}</b>，${esc(short(d.benched.name))}被换到了替补席。主教练把箱子收进了柜子：<span class="quote">“酒我留下了，首发是你自己挣的。”</span></p>`
         : `<p>第二天，首发名单上没有你的名字。主教练把箱子推了回来：<span class="quote">“酒留下，首发自己去抢。”</span>你被排进了<b>替补席</b>。</p>`}
-      <p>首发：${team.slice(0, 5).map((p) => `${E.POS_LABEL[p.pos]} ${esc(short(p.name))}`).join(' · ')}</p>
+      <p>首发：${team.slice(0, 5).map((p) => `<span class="nw">${E.POS_LABEL[p.pos]} ${esc(short(p.name))}</span>`).join(' · ')}</p>
     </section>
     <h3>你的球队</h3>
     ${rosterHtml(run.team)}
@@ -1280,7 +1280,7 @@ hub = function () {
       <details class="opp-bench"><summary class="muted small">对手替补 7 人（均分 ${fmt1(benchAvg(L.roster))}）</summary>
         <div class="mgrid">${L.roster.slice(5).map((x) => miniCard(x)).join('')}</div></details>
       <div class="stat-grid${L.bond ? ' has-bond' : ''}">
-        <div><b>${fmt1(L.raw)}</b><span>阵容实力</span></div>
+        <div><b>${fmt1(L.raw)}</b><span>对手阵容</span></div>
         <div><b>${L.boost >= 0 ? '+' : ''}${fmt1(L.boost)}</b><span>${run.level === TOTAL - 1 ? '72 胜光环' : L.boost < 0 ? '赛季初状态' : '状态加成'}</span></div>
         ${L.bond ? `<div class="bond-stat"><b>+${fmt1(L.bondPower)}</b><span>🔗 羁绊</span></div>` : ''}
         <div><b>${fmt1(L.power)}</b><span>对手实力</span></div>
@@ -1295,7 +1295,7 @@ hub = function () {
         <div class="bar"><div class="me" style="width:${(mine / total) * 100}%"></div><div class="them" style="width:${(L.power / total) * 100}%"></div></div>
         <div class="spread small"><span style="color:var(--accent)">你</span><span>预计胜率 <b class="num">${Math.round(pWin * 100)}%</b></span><span class="muted">${esc(short(L.team))}</span></div>
       </div>
-      <button class="btn btn-primary" id="play">开始比赛</button>
+      <button class="btn btn-primary sticky-cta" id="play">开始比赛</button>
     </section>
     <section class="card ladder-card">
       <div class="spread"><b>关卡进度</b><span class="muted small">${run.level} / ${TOTAL} · 五大 Boss：魔神皇佛鲨</span></div>
@@ -1531,7 +1531,7 @@ endScreen = function (won) {
 function homeBosses() {
   const list = E.LEVELS.filter((L) => L.boss).map((L) => ({ L, b: L.boss, p: L.roster.find((x) => x.name === L.boss.star) || L.roster[0] }));
   return `<section class="card home-boss"><div class="spread"><h3>五大 Boss · 魔神皇佛鲨</h3><small class="muted">每 6 关一位</small></div>
-    <div class="hb-grid">${list.map(({ L, b, p }) => `<div class="hb${L.index === TOTAL - 1 ? ' last' : ''}"><span class="hb-glyph">${b.glyph}</span><div class="hb-av">${Avatar.avatarSVG(p)}</div><b>${esc(b.nick)}</b><small>'${String(L.year).slice(2)} ${esc(E.nick(L.team))}</small><small class="hb-lv">第 ${L.index + 1} 关</small></div>`).join('')}</div></section>`;
+    <div class="hb-grid">${list.map(({ L, b, p }) => `<div class="hb${L.index === TOTAL - 1 ? ' last' : ''}"><span class="hb-glyph">${b.glyph}</span><div class="hb-av">${Avatar.avatarSVG(p)}</div><b>${esc(b.nick)}</b><small>${L.year}<br>${esc(E.nick(L.team))}</small><small class="hb-lv">第 ${L.index + 1} 关</small></div>`).join('')}</div></section>`;
 }
 // 首页（2026-11-19）：标题 → 一句话「挑战 30 支历届总冠军球队，看看你能闯几关」→ 挑战介绍（中场投篮 → 你自己的球员 → 30 支冠军）
 //   → 你的纪录 → 守关 Boss 头像墙；「开始挑战」一直贴在屏幕底部，点了直接进中场投篮（halftime）
@@ -1548,7 +1548,7 @@ home = function () {
     </section>
     <section class="card challenge pop">
       <p class="eyebrow">⚔️ 挑战王朝</p>
-      <p>这条路上，有<b>成长</b>，有<b>收获</b>，有<b>挑战</b>，也有<b>失败</b>。</p>
+      <p>这条路上，有<b>成长</b>，有<b>收获</b>，有<b>挑战</b>，<span class="nw">也有<b>失败</b>。</span></p>
       <p>每一关，都是一支历史上的<b>总冠军球队</b>。</p>
       <div class="ch-facts"><span><b class="num">${TOTAL}</b>关冠军球队</span><span><b class="num">${E.BOSSES.length}</b>大 Boss</span><span><b class="num">3</b>条命</span></div>
     </section>
@@ -1828,10 +1828,10 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .mc-fig{position:absolute;left:0;right:0;top:15%;bottom:19%}
 .mc-fig svg{width:100%;height:100%;display:block}
 .mc-ovr{position:absolute;top:3px;left:4px;z-index:2;font:800 15px/1 var(--num);text-shadow:0 1px 3px #000}
-.mc-pos{position:absolute;top:4px;right:4px;z-index:2;font-size:9.5px;color:#E3E8F2;text-shadow:0 1px 2px #000}
+.mc-pos{position:absolute;top:4px;right:4px;z-index:2;font-size:10.5px;color:#E3E8F2;text-shadow:0 1px 2px #000}
 .mc-bond{position:absolute;top:20px;left:3px;z-index:2;font-size:9px;font-weight:800;color:var(--gold);text-shadow:0 1px 2px #000}
 .mc-me{position:absolute;bottom:21px;right:3px;z-index:2;font-size:9px;font-weight:800;padding:0 4px;border-radius:4px;background:var(--accent);color:#1A0E02}
-.mc-name{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:3px 2px 4px;background:rgba(5,8,15,.88);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc-name{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:3px 2px 4px;background:rgba(5,8,15,.88);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mc-name.sm{font-size:9.5px;letter-spacing:-.02em}.mc-name.xs{font-size:8.5px;letter-spacing:-.04em}
 .mcard.me{border-color:var(--accent)}
 .mc-badge{position:absolute;top:18px;right:3px;z-index:2;font-size:9px;font-weight:800;line-height:1.5;padding:0 4px;border-radius:4px;background:var(--gold);color:#1A0E02}
 .mcard.rank-legend{border:2px solid #FFD54A;box-shadow:0 0 10px rgba(255,213,74,.5)}.mcard.rank-gold{border:2px solid #E8B64C}
@@ -1961,6 +1961,8 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .hb small{font-size:10px;color:var(--muted);white-space:nowrap}
 .hb{position:relative;padding-top:4px}.hb .hb-lv{color:#FFC58A}
 .hb-glyph{font-family:var(--display);font-size:22px;line-height:1;color:#FFD54A;text-shadow:0 0 12px rgba(255,213,74,.5)}
+/* 文字按钮看起来不变，点按区域放大到约 44px 高（手机上好点） */
+.link-btn{padding:12px 6px;margin:-12px -6px}#back.muted,#home.muted{padding:12px 10px;margin:-12px -10px}#speed{padding:7px 12px}
 .home-how ol{margin:0;padding-left:20px;display:grid;gap:7px;font-size:13.5px;color:var(--muted);line-height:1.5}
 .home-how li b{color:var(--text,#fff);margin-right:6px}
 .shot-line{margin:0;font-size:12.5px;line-height:1.75;color:#cfe3ff;font-family:var(--num)}.shot-line b{display:inline-block;min-width:5.2em;color:var(--muted);font-weight:400;font-family:var(--body)}
