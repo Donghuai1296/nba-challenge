@@ -2014,6 +2014,15 @@ if (run && Array.isArray(run.team)) {
   if (run.signing && run.signing.cards) run.signing.cards.forEach(fix);
   save();
 }
+// 2026-11-26 开局球星评分改了（东契奇、文班 100 → 99，亚历山大、字母哥 99 → 98）：老存档里已经在队里的现役球星跟着改
+if (run && Array.isArray(run.team)) {
+  const now = new Map(C.PICK_STARS.map((s) => [s.name, s.ovr]));
+  const fix = (p) => { if (p && !p.isMe && (p.from === '现役' || p.season === '本季') && now.has(p.name)) p.ovr = now.get(p.name); };
+  run.team.forEach(fix);
+  if (run.signing && run.signing.cards) run.signing.cards.forEach(fix);
+  if (run.chestOffer && run.chestOffer.players) run.chestOffer.players.forEach(fix);
+  save();
+}
 // game.js 加载时已经画过一次旧首页，这里重画成生涯模式
 home();
 // 虎扑版：首页画好、能点了，通知平台（HupuBridge 会等标题字体和首页照片加载完再发）
