@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>诸神黄昏：王朝终结者</title>
+<!-- 虎扑 Shaper 修复任务标记（平台要求留在入口 HTML 的 head 里；以后有新的修复任务把编号合并进来、去重） -->
+<script type="application/json" id="shaper-repair">
+{
+  "repairTaskIds": [
+    "repair_task_8bca61beb364416f47cda115c70c9646"
+  ]
+}
+</script>
 <style>
 /* 标题字体：得意黑 Smiley Sans（SIL OFL 1.1，github.com/atelier-anchor/smiley-sans），
    只留界面里用到的字（scripts/subset-font.js 生成，约几百 KB）；没收进去的字自动用系统字体 */
@@ -367,10 +375,31 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .gcard, .gcard.dealt, .gcard .inner, .gcard.charge .back, .gacha.shake, .gcard.flipped.hi, .gcard.r-legend .front::before { animation: none !important; transition: none !important; }
   .gcard { transform: none; }
 }
+/* 启动画面：网页一到就有内容，游戏脚本（约 280 KB）全部加载完、首页画出来时被替换掉。
+   以前 #app 是空的，网慢时用户一直看着白屏（2026-11-26 虎扑白屏率 5.41% 的修复任务） */
+.boot { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1; padding: 0 16px; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; background: radial-gradient(60% 45% at 50% 38%, rgba(242,140,40,.22), transparent 70%), var(--bg); }
+.boot-title { margin: 0; font-family: var(--display); font-size: 62px; line-height: 1.02; letter-spacing: .02em; display: flex; gap: 2px; }
+.boot-title span { color: #fff; }
+.boot-title b { font-weight: inherit; color: #F7A23B; }
+.boot-sub { margin: 0; font-family: var(--display); font-size: 18px; letter-spacing: .3em; margin-right: -.3em; color: var(--gold); }
+.boot-bar { width: 160px; height: 4px; margin-top: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,.1); }
+.boot-bar i { display: block; width: 40%; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #FFAE55, #F28C28); animation: bootRun 1.1s ease-in-out infinite; }
+.boot-msg { margin: 0; font-size: 14px; color: var(--muted); }
+.boot.fail .boot-bar { display: none; }
+.boot.fail .boot-msg { color: #FFC58A; }
+.boot-retry { margin-top: 6px; padding: 10px 26px; border: 0; border-radius: 12px; font: 700 16px/1.2 var(--body, sans-serif); color: #1A0E02; background: linear-gradient(180deg, #FFAE55, #F28C28); }
+@keyframes bootRun { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .boot-bar i { animation: none; width: 100%; } }
 </style>
 </head>
 <body>
-<main id="app"></main>
+<main id="app"><div class="boot" id="boot" role="status" aria-live="polite">
+  <h1 class="boot-title"><span>诸神</span><b>黄昏</b></h1>
+  <p class="boot-sub">王 朝 终 结 者</p>
+  <div class="boot-bar"><i></i></div>
+  <p class="boot-msg" id="bootMsg">正在进场……</p>
+</div></main>
+<script src="boot.js"></script>
 <script src="positions.js"></script>
 <script src="looks.js"></script>
 <script src="faces.js"></script>

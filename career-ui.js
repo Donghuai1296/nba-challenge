@@ -2040,5 +2040,6 @@ if (run && Array.isArray(run.team)) {
 }
 // game.js 加载时已经画过一次旧首页，这里重画成生涯模式
 home();
+window.__gameReady = true; // 首页画好了：boot.js 不再提示（启动画面已经被首页替换掉）
 // 虎扑版：首页画好、能点了，通知平台（HupuBridge 会等标题字体和首页照片加载完再发）
 if (window.HupuBridge) window.HupuBridge.ready(app);
