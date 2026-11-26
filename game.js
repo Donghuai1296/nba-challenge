@@ -1,6 +1,6 @@
 // 诸神黄昏：王朝终结者（30 关模式叫「挑战王朝」）：界面与流程
 const E = window.Engine;
-// 虎扑版（有照片）：10 连抽和宝箱不出找不到照片的老替补（显示成剪影，像头像没加载出来）。网站版都是 Q 版形象，不用去
+// 有照片时（虎扑版、网站版）：10 连抽和宝箱不出找不到照片的老替补（显示成剪影，像头像没加载出来）。Q 版（NO_PHOTOS）不用去
 if (!window.NO_PHOTOS && window.Avatar) E.limitGachaPool((p) => !!Avatar.photoOf(p));
 const app = document.getElementById('app');
 const TOTAL = E.LEVELS.length;

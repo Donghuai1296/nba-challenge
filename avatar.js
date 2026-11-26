@@ -362,8 +362,8 @@
   // 人像分割抠好的老照片（photo-ml.js，scripts/ml-cutout.js 生成）：比方形原图、按颜色抠的都优先
   //   起因：用户说「1994 火箭球员头像显示出来很奇怪」——观众席背景的比赛照以前只能整块方图显示
   const mlOf = (u) => (root.PHOTO_ML && root.PHOTO_ML[u]) || '';
-  // 网站版（scripts/build-site.js 默认）不放球员照片：页面里写 window.NO_PHOTOS = true，全部用 Q 版形象。
-  //   虎扑版的照片来自虎扑技能包和虎扑图床，算平台提供；公开网站上没有这层授权（2026-11-26 用户定）
+  // 页面里写了 window.NO_PHOTOS = true（scripts/build-site.js --no-photos）就不放球员照片，全部用 Q 版形象。
+  //   2026-11-26 用户先定网站版不放照片，同一天又改成网站版也用虎扑照片，所以现在两个版本默认都有照片
   const NO_PHOTOS = !!root.NO_PHOTOS;
   function hupuPhoto(p) {
     if (NO_PHOTOS) return '';
