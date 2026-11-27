@@ -61,26 +61,41 @@ function halftime() {
 // 选人页：9 位超级明星；都不满意的话，从剩下的 95+ 球星里随机一名（先放 2 秒出场特效）
 const REST_STARS = () => C.SUPERSTARS.filter((s) => !C.PICK_STARS.includes(s));
 function pickFav(selected = null) {
-  const s = selected && starOf(selected);
-  const t = s && C.teamOfStar(s);
-  const isRandom = s && !C.PICK_STARS.includes(s);
+  const first = selected && starOf(selected);
+  const isRandom = first && !C.PICK_STARS.includes(first);
+  const list = isRandom ? [...C.PICK_STARS, first] : C.PICK_STARS;
   const lo = Math.min(...C.PICK_STARS.map((p) => p.ovr)), hi = Math.max(...C.PICK_STARS.map((p) => p.ovr));
+  // 每位球星的详情面板一开始全部画好、先藏起来；点卡只切换显示哪一张、挪金边（以前每点一下整页重画，
+  //   9 张带照片的卡全部重新排版、重新画，低端安卓上这一下要 0.2 秒以上才有反应——虎扑「响应时间」2026-11-27）
+  const panel = (p) => `<div class="dp-slot" data-name="${esc(p.name)}" hidden>${detailPanel(p, `${C.teamOfStar(p).city} · 2026-27 赛季${p === first && isRandom ? ' · 随机抽中' : ''}`)}</div>`;
   app.innerHTML = `
     <div class="spread"><h2>你最喜欢哪个球员？</h2><button class="muted small" id="back">返回</button></div>
     <p class="muted small">${C.PICK_STARS.length} 位现役超级明星，评分 ${lo}-${hi}。你选的人，会成为你的队友。</p>
-    ${s ? detailPanel(s, `${t.city} · 2026-27 赛季${isRandom ? ' · 随机抽中' : ''}`) : ''}
+    <div id="dps" hidden>${list.map(panel).join('')}</div>
     <button class="btn btn-ghost" id="randomStar">🎲 都不满意？从剩下 ${REST_STARS().length} 位 95+ 球星里随机一名</button>
-    <div class="tgrid">${C.PICK_STARS.map((p) => tallCard(p, { button: true, sel: selected === p.name, badge: C.teamOfStar(p).cn, attrs: `data-name="${esc(p.name)}"` })).join('')}
-      ${isRandom ? tallCard(s, { button: true, sel: true, badge: '随机', attrs: `data-name="${esc(s.name)}"` }) : ''}</div>
-    <button class="btn btn-primary sticky-cta" id="ok" ${s ? '' : 'disabled'}>${s ? `“我最喜欢 ${esc(short(s.name))}！”` : '先选一位球员'}</button>`;
+    <div class="tgrid">${C.PICK_STARS.map((p) => tallCard(p, { button: true, badge: C.teamOfStar(p).cn, attrs: `data-name="${esc(p.name)}"` })).join('')}
+      ${isRandom ? tallCard(first, { button: true, badge: '随机', attrs: `data-name="${esc(first.name)}"` }) : ''}</div>
+    <button class="btn btn-primary sticky-cta" id="ok" disabled>先选一位球员</button>`;
+  let s = null;
+  const ok = document.getElementById('ok');
+  const dps = document.getElementById('dps');
+  const choose = (name) => {
+    s = starOf(name) || null;
+    app.querySelectorAll('.tcard[data-name]').forEach((el) => el.classList.toggle('sel', el.dataset.name === name));
+    dps.querySelectorAll('.dp-slot').forEach((el) => (el.hidden = el.dataset.name !== name));
+    dps.hidden = !s;
+    ok.disabled = !s;
+    ok.textContent = s ? `“我最喜欢 ${short(s.name)}！”` : '先选一位球员'; // 纯文字，用 textContent 写
+  };
+  if (first) choose(first.name);
   document.getElementById('back').onclick = () => go(home);
-  app.querySelectorAll('.tcard[data-name]').forEach((el) => (el.onclick = () => pickFav(el.dataset.name)));
+  app.querySelectorAll('.tcard[data-name]').forEach((el) => (el.onclick = () => { if (!s || el.dataset.name !== s.name) choose(el.dataset.name); }));
   document.getElementById('randomStar').onclick = () => {
-    const rest = REST_STARS().filter((p) => p.name !== selected); // 再点一次不会抽到同一个人
+    const rest = REST_STARS().filter((p) => !s || p.name !== s.name); // 再点一次不会抽到同一个人
     const p = rest[Math.floor(Math.random() * rest.length)];
     walkout({ ...p, legendYear: '2026-27', legendTeam: C.teamOfStar(p).city }).then(() => go(() => pickFav(p.name)));
   };
-  document.getElementById('ok').onclick = () => { intro.star = s.name; go(airball); };
+  ok.onclick = () => { if (!s) return; intro.star = s.name; go(airball); };
 }
 function airball() {
   const n = short(intro.star);
@@ -1030,9 +1045,11 @@ function cardStage(stage) {
   stage.innerHTML = `${result}<section class="dc-intro">${pack(false)}
     <p class="small muted">冠军球队夺冠赛季的球员 · 90+ 5% · 80+ 30%<br>抽完一键签约：比队里最弱的替补强就换上（不看位置）；重复抽到的球星转幸运值，其他没签的卡作废</p>
     <button class="btn btn-gold" id="pull">🃏 开始 10 连抽（剩 ${run.draws} 次）</button></section>`;
-  document.getElementById('pull').onclick = async () => {
+  document.getElementById('pull').onclick = async (e) => {
     if (drawing || !run.draws) return;
     drawing = true;
+    // 真人点击：按钮先变暗、这一帧画出来，再发 10 张卡（一次要建 10 张带照片的卡，低端机上要几百毫秒）
+    if (userTap()) { const b = e.currentTarget; tapBusy(true, b); await new Promise((r) => afterPaint(r)); tapBusy(false, b); }
     run.draws--;
     const cards = E.gacha(10);
     run.signing = { cards, signed: [], pick: null, swaps: [] };
