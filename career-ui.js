@@ -1265,6 +1265,7 @@ hub = function () {
   }
   const canPromote = mi >= 5 && si >= 0 && same.length && me.ovr >= Math.max(...same.map((p) => p.ovr));
   const L = E.LEVELS[run.level];
+  setStage(L); // 背景光换成这一关对手的队色
   const mine = myPower(), pWin = winChance(mine - L.power), total = mine + L.power;
   const bd = bondOf(run.team), team = withBond(run.team), meB = team.find((p) => p.isMe);
   const pas = (run.passives || []).filter((k) => E.PASSIVES[k]); // 老存档里可能有已删掉的被动

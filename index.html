@@ -38,8 +38,26 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+html, body { margin: 0; color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+html { background: var(--bg); }
 body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+/* 页面背景（2026-11-28）：上面一片光用当前对手的队色（game.js 的 setStage，Boss 关红黑，其他页面黄昏橙），
+   下面是球馆木地板和半场线。单独一层固定在屏幕上：只在换颜色时画一次，滚动、换页都不重画（不用毛玻璃模糊，低端机画不动）。
+   颜色直接给 rgba（不用 color-mix，老安卓内核不认） */
+:root { --o1a: rgba(242, 140, 40, 0.30); --o2a: rgba(242, 193, 78, 0.10); }
+body::before {
+  content: ""; position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; will-change: transform;
+  /* 从上到下叠：队色光 → 上半截盖住地板和半场线的渐变（越往下越透，线和木纹就越往下越清楚）→ 半场线 → 木纹 → 地板底色。
+     半场线图里不能再引用别的图（比如渐变 id）：build-site.js 会把那个引用当成本地文件去找，找不到就打包失败 */
+  background:
+    radial-gradient(110% 56% at 50% -10%, var(--o1a), rgba(14, 20, 34, 0) 74%),
+    radial-gradient(60% 50% at 108% 28%, var(--o2a), rgba(14, 20, 34, 0) 70%),
+    linear-gradient(180deg, #0E1422 0%, #0E1422 40%, rgba(14, 20, 34, 0) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 470' fill='none' stroke='%23fff' stroke-opacity='.14' stroke-width='2.4'%3E%3Cpath d='M10 470V10h480v460M190 470V280h120v190M160 470V280h180v190M40 470V400a210 210 0 0 1 420 0v70'/%3E%3Ccircle cx='250' cy='280' r='60'/%3E%3C/svg%3E") 50% 100% / 520px auto no-repeat,
+    repeating-linear-gradient(90deg, rgba(255, 200, 140, 0.045) 0, rgba(255, 200, 140, 0.045) 1px, rgba(255, 200, 140, 0) 1px, rgba(255, 200, 140, 0) 38px),
+    linear-gradient(180deg, #0E1422 35%, #2A1A10 100%);
+}
+@media (max-width: 520px) { body::before { background-size: auto, auto, auto, 100% auto, auto, auto; } }
 #app {
   max-width: 480px;
   margin: 0 auto;
@@ -72,7 +90,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row > * { flex: 1; }
 .spread { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+/* 卡片半透明，透出后面的队色光和地板（不透明的话卡片几乎盖满屏幕，背景只剩两边 16px） */
+.card { background: rgba(23, 32, 51, 0.74); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
 
 /* 首页 */
 .hero { padding: 28px 4px 8px; display: grid; gap: 10px; }
@@ -117,7 +136,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .meter .me { background: var(--accent); }
 .meter .them { background: #5A6B8C; }
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
-.stat-grid div { background: var(--surface-2); border-radius: 10px; padding: 8px 4px; }
+.stat-grid div { background: rgba(31, 42, 66, 0.72); border-radius: 10px; padding: 8px 4px; }
 .stat-grid b { display: block; font: 800 20px var(--num); }
 .stat-grid span { font-size: 11.5px; color: var(--muted); }
 
@@ -131,7 +150,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .qtable th { color: var(--muted); font-weight: 400; }
 .qtable td:first-child, .qtable th:first-child { text-align: left; font-family: var(--body); }
 .feed { display: grid; gap: 2px; max-height: 340px; overflow-y: auto; }
-.ev { display: grid; grid-template-columns: 40px 44px 1fr 58px; gap: 6px; align-items: center; font-size: 13px; padding: 5px 6px; border-radius: 6px; background: var(--surface-2); }
+.ev { display: grid; grid-template-columns: 40px 44px 1fr 58px; gap: 6px; align-items: center; font-size: 13px; padding: 5px 6px; border-radius: 6px; background: rgba(31, 42, 66, 0.7); }
 .ev .t { color: var(--muted); font-family: var(--num); font-size: 12px; }
 .ev .tm { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ev .sc { text-align: right; font-size: 12px; color: var(--muted); }

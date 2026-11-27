@@ -320,7 +320,17 @@ const afterPaint = (fn) => {
   requestAnimationFrame(() => setTimeout(run, 0));
   setTimeout(run, 1000);
 };
-const renderPage = (fn, args) => { if (window.setNav) setNav(null); fn(...args); window.scrollTo({ top: 0 }); };
+// 页面背景上面那片光的颜色（index.html 的 --o1a / --o2a）：大厅、比赛页用这一关对手的队色，Boss 关红黑；
+// 换页时先恢复默认的黄昏橙，要用队色的页面自己再设。颜色是游戏内置数据，转成 rgba 写进 CSS 变量（不经过 HTML）
+const hexRgba = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return ''; const n = parseInt(m[1], 16); return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`; };
+const setStage = (L) => {
+  const s = document.documentElement.style;
+  const c1 = L && hexRgba(L.boss ? '#C62828' : L.color, L.boss ? 0.42 : 0.5);
+  if (!c1) { s.removeProperty('--o1a'); s.removeProperty('--o2a'); return; }
+  s.setProperty('--o1a', c1);
+  s.setProperty('--o2a', L.boss ? 'rgba(255, 107, 61, 0.14)' : 'rgba(242, 193, 78, 0.12)');
+};
+const renderPage = (fn, args) => { if (window.setNav) setNav(null); setStage(null); fn(...args); window.scrollTo({ top: 0 }); };
 const go = (fn, ...args) => {
   const seq = ++goSeq;
   const root = document.documentElement;
@@ -858,6 +868,7 @@ function sweepDupes(s) {
 let timer = null;
 function match() {
   const L = E.LEVELS[run.level];
+  setStage(L);
   const bd = bondOf(run.team);
   const r = E.simulate(run.team, run.level, { myBonus: E.chemistry(run.wins), myBond: bd.bonus, bondWho: bd.who.map((p) => p.name), bondText: bd.text, myLabel: run.teamLabel, passives: run.passives || [] });
   app.innerHTML = `
