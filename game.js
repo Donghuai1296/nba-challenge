@@ -297,7 +297,35 @@ async function copy(text) {
   catch { prompt('复制下面这段文字：', text); }
 }
 // 换页：先收起底部导航（career-ui.js 的 setNav），要导航的页面自己再打开
-const go = (fn, ...args) => { if (window.setNav) setNav(null); fn(...args); window.scrollTo({ top: 0 }); };
+// 2026-11-27 响应时间修复（虎扑 repair_task_aaab9eb31b69c638e156a5e3457a36d5，响应时间 256ms）：
+//   线上最慢的交互都是开局那几下换页点击（安卓 X5 内核，事件处理 1～7.5 秒）——换页要把整页 HTML 塞进去、当场排版
+//   （scrollTo 强制布局），低端机上点下去好几秒画面一动不动。
+//   用户真实点击触发的换页：这一帧只把当前页压暗、挡住重复点击（马上画出来，就是点击反馈），画出来以后再画新页面；
+//   脚本、定时器、动画结束触发的换页照旧同步（测试页直接调 go、用 .click() 也是同步）。连着换页只画最后一次
+let goSeq = 0;
+const userTap = () => { const ev = window.event; return !!(ev && ev.isTrusted && /^(click|pointerup|pointerdown|touchend|mouseup|keydown|keyup)$/.test(ev.type)); };
+// 等当前这一帧画出来再执行 fn（只执行一次）。页面在后台（不出帧）时直接执行；
+// 保底 1 秒：个别 WebView 不给 requestAnimationFrame 回调也不会卡住。保底不能太短——低端机上直播页一帧就要 150ms 以上，
+// 太短的话保底先到，重活又跑到画面出来之前（2026-11-27 实测「跳过」150ms 保底时就是这样）
+const afterPaint = (fn) => {
+  let done = false;
+  const run = () => { if (!done) { done = true; fn(); } };
+  if (document.hidden) { setTimeout(run, 0); return; }
+  requestAnimationFrame(() => setTimeout(run, 0));
+  setTimeout(run, 1000);
+};
+const renderPage = (fn, args) => { if (window.setNav) setNav(null); fn(...args); window.scrollTo({ top: 0 }); };
+const go = (fn, ...args) => {
+  const seq = ++goSeq;
+  const root = document.documentElement;
+  if (!userTap()) { root.classList.remove('page-busy'); renderPage(fn, args); return; }
+  root.classList.add('page-busy');
+  afterPaint(() => {
+    if (seq !== goSeq) return; // 期间又换了页，以最后一次为准
+    root.classList.remove('page-busy');
+    renderPage(fn, args);
+  });
+};
 
 /* ---------- 抽卡动画 ---------- */
 const RARITY = [
@@ -928,7 +956,8 @@ function match() {
     over = true;
     clearTimeout(timer);
     document.querySelectorAll('.boss-intro, .skill-fx').forEach((x) => x.remove());
-    // 跳过时把剩下的直播一次补完（只留最近 80 条）
+    // 跳过时把剩下的直播一次补完（只留最近 80 条）：更早的补进去也会马上被挤掉，直接从最后 80 条开始补，结果一样
+    i = Math.max(i, r.events.length - 80);
     while (i < r.events.length) addEv(r.events[i++]);
     for (let q = 0; q < 4; q++) showQuarter(q, r.final);
     document.getElementById('t0').textContent = r.final[0];
@@ -936,7 +965,14 @@ function match() {
     document.getElementById('skip').remove();
     showResult(r);
   };
-  document.getElementById('skip').onclick = finish;
+  // 点「跳过」：按钮马上变成「正在出结果」（这一帧先画出来），再补完直播、画结算（同一个 go 的道理，见上面 afterPaint）
+  document.getElementById('skip').onclick = (e) => {
+    if (over || !userTap()) { finish(); return; }
+    const b = e.currentTarget;
+    b.disabled = true;
+    b.textContent = '正在出结果……';
+    afterPaint(finish);
+  };
   // Boss 关：先放 Boss 登场特效（点屏幕跳过），再开始直播
   const startLive = () => { if (!over) timer = setTimeout(step, 300); };
   if (L.boss && window.bossIntroFx) bossIntroFx(L).then(startLive);

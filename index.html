@@ -10,7 +10,8 @@
   "repairTaskIds": [
     "repair_task_8bca61beb364416f47cda115c70c9646",
     "repair_task_c6b23ded68a15d2b10527c17460202ce",
-    "repair_task_cc998129485914e976f8df91fcdf5e7c"
+    "repair_task_cc998129485914e976f8df91fcdf5e7c",
+    "repair_task_aaab9eb31b69c638e156a5e3457a36d5"
   ]
 }
 </script>
@@ -46,6 +47,9 @@ body { min-height: 100vh; -webkit-tap-highlight-color: transparent; }
   display: grid;
   gap: 14px;
 }
+/* 点了换页按钮：新页面画出来之前，当前页先压暗、不能再点（game.js 的 go，点击反馈马上出来，也防止连点重复执行） */
+html.page-busy body { pointer-events: none; }
+html.page-busy #app { opacity: 0.55; }
 h1, h2, h3 { margin: 0; line-height: 1.25; text-wrap: balance; }
 /* 标题、按钮、底部导航用得意黑；它只有一种粗细，关掉假粗体（没收进字库的字照样用系统粗体） */
 h1, h2, h3, .btn, .tabbar .tl { font-family: var(--display); font-synthesis: none; letter-spacing: 0.02em; }
