@@ -291,8 +291,8 @@ function toast(msg) {
   setTimeout(() => t.remove(), 1800);
 }
 async function copy(text) {
-  // 虎扑版（scripts/build-hupu.js 在 index.html 里放了 HupuBridge）：用虎扑原生分享面板，不复制文字
-  if (window.HupuBridge) { const r = await window.HupuBridge.share(text); if (!r.ok) toast(r.msg); return; }
+  // 虎扑版（scripts/build-hupu.js 在 index.html 里放了 GameHupu）：用虎扑原生分享面板，不复制文字
+  if (window.GameHupu) { const r = await window.GameHupu.share(text); if (!r.ok) toast(r.msg); return; }
   try { await navigator.clipboard.writeText(text); toast('已复制，去分享给球友吧'); }
   catch { prompt('复制下面这段文字：', text); }
 }
@@ -1044,7 +1044,7 @@ function endScreen(won) {
     </section>
     <h3>最终阵容</h3>
     ${run.career ? lineupGrids(run.team) : rosterHtml(run.team)}
-    <section class="card"><p class="small">${esc(text)}</p><button class="btn btn-ghost" id="share">${window.HupuBridge ? '分享战绩' : '复制战绩'}</button></section>
+    <section class="card"><p class="small">${esc(text)}</p><button class="btn btn-ghost" id="share">${window.GameHupu ? '分享战绩' : '复制战绩'}</button></section>
     <button class="btn btn-primary" id="again">再来一局</button>`;
   document.getElementById('share').onclick = () => copy(text);
   document.getElementById('again').onclick = () => {

@@ -142,10 +142,10 @@ function createPos(sel = null) {
   document.getElementById('ok').onclick = async (ev) => {
     const btn = ev.currentTarget;
     const typed = document.getElementById('myName').value.trim();
-    // 虎扑版：自己起的名字先过虎扑内容安全检测（index.html 里的 HupuBridge），没通过不让开始
-    if (typed && window.HupuBridge) {
+    // 虎扑版：自己起的名字先过虎扑内容安全检测（index.html 里的 GameHupu），没通过不让开始
+    if (typed && window.GameHupu) {
       btn.disabled = true;
-      const r = await window.HupuBridge.checkText(typed);
+      const r = await window.GameHupu.checkText(typed);
       btn.disabled = false;
       if (!r.ok) { toast(r.msg); return; }
     }
@@ -2048,5 +2048,5 @@ if (run && Array.isArray(run.team)) {
 // game.js 加载时已经画过一次旧首页，这里重画成生涯模式
 home();
 window.__gameReady = true; // 首页画好了：boot.js 不再提示（启动画面已经被首页替换掉）
-// 虎扑版：首页画好、能点了，通知平台（HupuBridge 会等标题字体和首页照片加载完再发）
-if (window.HupuBridge) window.HupuBridge.ready(app);
+// 虎扑版：首页画好、能点了，通知平台（GameHupu 会等标题字体和首页照片加载完再发）
+if (window.GameHupu) window.GameHupu.ready(app);

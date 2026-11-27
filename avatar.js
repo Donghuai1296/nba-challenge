@@ -405,7 +405,7 @@
     const lift = opts.bare && !boxed && root.PHOTO_LIFT ? root.PHOTO_LIFT[mlOf(rawPhoto(p))] || 0 : 0;
     const shift = lift ? ` style="transform:translateY(-${lift}%)"` : '';
     // 剪影先藏起来，直接显示照片；照片加载失败才把剪影露出来
-    return `<span class="${cls}" style="background:${bg}">${svg}<img class="hp-photo" alt="" src="${url}"${shift} referrerpolicy="no-referrer" decoding="async" onerror="this.parentNode.classList.add('fail');this.remove()"></span>`;
+    return `<span class="${cls}" style="background:${bg}">${svg}<img class="hp-photo" alt="" src="${url}"${shift} referrerpolicy="no-referrer" decoding="async" onerror="var s=this.parentNode;if(s&&s.classList)s.classList.add('fail');this.remove()"></span>`;
   }
   // 提前把一批照片下载进浏览器缓存（比如进入选人页前），翻页时就不会一张张冒出来
   const preloaded = new Set();
