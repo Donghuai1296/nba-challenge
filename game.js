@@ -618,7 +618,7 @@ function home() {
     ${run ? `<button class="btn btn-primary" id="resume">继续挑战（第 ${run.level + 1} 关）</button>` : ''}
     <button class="btn ${run ? 'btn-ghost' : 'btn-primary'}" id="new">${run ? '放弃并重新开始' : '开始挑战'}</button>
     <p class="note">现役球员：本赛季数据取自 2026-27 赛季 11 月上旬公开统计（样本小），往季为 2024-25 赛季场均近似值；核心球星评分保底 95。冠军球员：夺冠赛季场均近似值，总评参考 2K 风格并整体 +${E.CHAMP_BOOST}。均为游戏数值。</p>`;
-  if (run) document.getElementById('resume').onclick = () => go(run.signing ? signing : hub);
+  if (run) document.getElementById('resume').onclick = () => { finishSigning(); go(hub); }; // 老存档里没签完的那一抽：直接签完
   document.getElementById('new').onclick = () => {
     run = null;
     store.del('nba-run');
@@ -751,8 +751,8 @@ async function tenDraw() {
   run.signing = { cards, signed: [], pick: null, swaps: [] };
   save();
   await drawCards(cards, { title: '十 连 抽', sub: '冠军球队夺冠赛季球员 · 90+ 5% · 80+ 30%', done: '一键替换并签约' });
-  oneClickReplace();
-  go(signing);
+  finishSigning();
+  go(run.career && window.drawCenter && (run.draws || run.passivePending || chestReady()) ? window.drawCenter : hub);
 }
 
 // 一键替换：比替补里最弱的人强就换（不看位置，E.autoReplace），然后自动排首发
@@ -773,8 +773,34 @@ function oneClickReplace() {
   s.pick = null;
   const lk = luckText(addLuck(pts));
   save();
-  if (res.swaps.length) toast(`一键替换 ${res.swaps.length} 人，实力 ${fmt1(before)} → ${fmt1(teamAvg(run.team))}${lk ? `；${lk}` : ''}`);
-  else toast(`没有比同位置球员更强的卡${lk ? `；${lk}` : ''}`);
+  return { before, after: teamAvg(run.team), lk };
+}
+
+// 签约一步完成（2026-11-27 用户：「签约完成这步有点繁琐，可以把这个字段删除吗」）：
+//   以前抽完要进「签约球员」页、再点「签约完成」；现在「一键替换并签约」就直接签完，
+//   替换结果记在 lastSign，抽卡页顶部显示一次（career-ui.js 的 signResult）。没签的卡照旧：重复的转幸运值，其他作废
+let lastSign = null;
+function finishSigning(quiet = false) {
+  if (!run || !run.signing) return null;
+  const r = oneClickReplace();
+  lastSign = { swaps: run.signing.swaps.slice(), before: r.before, after: r.after, lk: r.lk, cards: run.signing.cards.length };
+  run.signing = null;
+  save();
+  if (quiet) return lastSign; // 抽卡页会显示结果卡片，不再弹提示
+  if (lastSign.swaps.length) toast(`签下 ${lastSign.swaps.length} 人，实力 ${fmt1(lastSign.before)} → ${fmt1(lastSign.after)}${lastSign.lk ? `；${lastSign.lk}` : ''}`);
+  else toast(`没有比替补更强的卡${lastSign.lk ? `；${lastSign.lk}` : ''}`);
+  return lastSign;
+}
+// 签约结果（只显示一次）：换上谁、换下谁、实力变化
+function takeSignResult() {
+  const r = lastSign;
+  lastSign = null;
+  if (!r) return '';
+  return `<section class="card sign-result"><h3>✍️ 签约完成</h3>
+    ${r.swaps.length ? r.swaps.map((x) => `<div class="swap-row">${posTag(x.in)}<b>${esc(short(x.in.name))} ${x.in.ovr}</b><span class="muted">${x.up ? '升级旧版' : '换下'}</span><span>${esc(short(x.out.name))} ${x.out.ovr}</span><span class="diff-up">+${x.in.ovr - x.out.ovr}</span></div>`).join('')
+      : '<p class="muted small">这次没有比队里替补更强的卡</p>'}
+    <div class="spread small"><span class="muted">球队实力</span><b class="num">${fmt1(r.before)} → ${fmt1(r.after)}</b></div>
+    ${r.lk ? `<p class="small" style="color:var(--gold)">${esc(r.lk)}</p>` : ''}</section>`;
 }
 
 /* ---------- 幸运值：每赢一场、被换下的球员、重复抽到的球星都加幸运值 ----------
@@ -810,74 +836,6 @@ function sweepDupes(s) {
     pts += luckOf(c.ovr);
   });
   return pts;
-}
-
-function signing() {
-  const s = run.signing;
-  const pick = s.pick;
-  const card = pick !== null ? s.cards[pick] : null;
-  app.innerHTML = `
-    ${statusBar()}
-    <h2>签约球员</h2>
-    ${s.swaps.length ? `<section class="card"><h3>一键替换结果（换下替补里最弱的人）</h3>
-      ${s.swaps.map((x) => `<div class="swap-row">${posTag(x.in)}<b>${esc(short(x.in.name))} ${x.in.ovr}</b><span class="muted">${x.up ? '升级旧版' : '换下'}</span><span>${esc(short(x.out.name))} ${x.out.ovr}</span><span class="diff-up">+${x.in.ovr - x.out.ovr}</span></div>`).join('')}
-    </section>` : ''}
-    <p class="muted small">也可以手动签：点一张卡，再选一名要换下的球员（不限位置，替补只看总评）。被换下的人、重复抽到的球星会变成幸运值；其他没签的卡离开后作废。</p>
-    <div class="plist">${s.cards.map((p, i) => {
-      const signed = s.signed.includes(i);
-      const frag = !signed && (s.fragged || []).includes(i);
-      const dup = !signed && !frag && dupBlocked(p);
-      const up = !signed && !frag && !dup && !!E.sameOnTeam(run.team, p); // 队里有他的弱版本：可以升级
-      const tag = signed ? ' <span class="chip gold">已签约</span>' : frag ? ' <span class="chip">🍀 已转幸运值</span>' : dup ? ' <span class="chip">已在阵中</span>' : up ? ' <span class="chip gold">⬆ 可升级</span>' : '';
-      return playerCard(p, { button: !signed && !dup && !frag, sm: true, sel: pick === i, dim: signed || dup || frag, extra: tag, attrs: `data-card="${i}"` });
-    }).join('')}</div>
-    ${card ? `
-      <h3>用 ${esc(short(card.name))}（${card.ovr}）换下谁？</h3>
-      ${E.sameOnTeam(run.team, card) ? `<p class="small muted">队里已经有 ${esc(short(E.sameOnTeam(run.team, card).name))}（${E.sameOnTeam(run.team, card).ovr}），同一个球员只留一张：只能换下他，升级成这个版本</p>` : ''}
-      ${[['首发', 0, 5], ['替补', 5, 12]].map(([label, a, b]) => `
-        <div class="muted small">${label}</div>
-        <div class="plist">${run.team.slice(a, b).map((p, k) => {
-          const i = a + k;
-          const d = card.ovr - p.ovr;
-          const extra = ` <span class="${d > 0 ? 'diff-up' : d < 0 ? 'diff-down' : 'muted'} small">${d > 0 ? '+' : ''}${d}</span>${isCore(p) ? ' <span class="chip gold">核心</span>' : ''}`;
-          return playerCard(p, { button: true, sm: true, extra, attrs: `data-slot="${i}"` });
-        }).join('')}</div>`).join('')}` : ''}
-    <div class="card"><div class="spread"><span class="muted">当前球队实力</span><b class="num" style="font-size:22px">${fmt1(teamAvg(run.team))}</b></div></div>
-    <button class="btn btn-primary" id="done">签约完成</button>`;
-  app.querySelectorAll('[data-card]').forEach((el) => {
-    if (el.tagName !== 'BUTTON') return;
-    el.onclick = () => {
-      s.pick = s.pick === Number(el.dataset.card) ? null : Number(el.dataset.card);
-      save();
-      signing();
-    };
-  });
-  app.querySelectorAll('[data-slot]').forEach((el) => (el.onclick = () => {
-    const i = Number(el.dataset.slot);
-    const out = run.team[i];
-    const same = E.sameOnTeam(run.team, card);
-    if (same && out !== same) { toast(`同一个球员只留一张：只能换下 ${short(same.name)}（${same.ovr}）`); return; }
-    if ((isCore(out) && out !== same) || out.isMe) {
-      toast(out.isMe ? '你自己不能被换下' : '核心球星不能换下');
-      return;
-    }
-    if (!E.canReplace(run.team, i, card)) { toast('这个人不能换下'); return; }
-    run.team[i] = { ...card };
-    s.signed.push(pick);
-    s.pick = null;
-    const lk = luckText(addLuck(luckFor(out) + sweepDupes(s)));
-    save();
-    toast(`签下 ${short(card.name)}，换下 ${short(out.name)}${lk ? `；${lk}` : ''}`);
-    signing();
-  }));
-  document.getElementById('done').onclick = () => {
-    run.signing = null;
-    save();
-    // 生涯模式：还有 10 连抽或勋章没抽，回抽取页；否则回关卡
-    if (run.career && window.drawCenter && (run.draws || run.passivePending || chestReady())) go(window.drawCenter);
-    else go(hub);
-  };
-  if (window.setNav) setNav('cards');
 }
 
 /* ---------- 比赛 ---------- */
