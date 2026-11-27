@@ -18,6 +18,8 @@
     return undefined;
   }
   // 冠军球员按夺冠年份取球衣，现役球员按本赛季球队
+  // 名字进 HTML 属性前转义（你自己的名字是玩家输入，存档读回来的也可能被改过；虎扑安全复核 2026-11-27）
+  const escAttr = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function kitOf(p) {
     const year = p.from && p.from !== '现役' ? Number(p.season) : null;
     if (year) return { kit: D.CHAMP_KITS[year] || DEFAULT_KIT, num: champNum(p.name, year), look: D.LOOKS[`${p.name}@${year}`] || D.LOOKS[p.name] || {}, key: `${p.name}@${year}` };
@@ -306,7 +308,7 @@
   }
 
   function finish(parts, p, ck) {
-    const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${p.name}" overflow="visible">${parts.join('')}</svg>`;
+    const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escAttr(p.name)}" overflow="visible">${parts.join('')}</svg>`;
     cache.set(ck, svg);
     return svg;
   }
@@ -376,7 +378,7 @@
   function silhouetteSVG(p, opts = {}) {
     const { kit } = kitOf(p);
     const fit = opts.bare ? 'xMidYMax slice' : 'xMidYMin slice'; // 和照片一样按高度铺满
-    return `<svg viewBox="0 0 569 320" preserveAspectRatio="${fit}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${p.name}">
+    return `<svg viewBox="0 0 569 320" preserveAspectRatio="${fit}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escAttr(p.name)}">
       <ellipse cx="284.5" cy="84" rx="60" ry="74" fill="#c3c9d4"/>
       <path d="M254 140h61v52h-61z" fill="#b3bac6"/>
       <path d="M118 320C124 238 186 204 284.5 198C383 204 445 238 451 320Z" fill="${kit.primary}"/>

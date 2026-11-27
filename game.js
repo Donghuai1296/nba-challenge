@@ -130,11 +130,12 @@ function ringSVG(ovr) {
   const r = 17;
   const c = 2 * Math.PI * r;
   const f = Math.max(0.05, Math.min(1, (ovr - 40) / 59));
-  return `<svg viewBox="0 0 44 44" class="ring" aria-label="综评 ${ovr}">
+  const v = esc(ovr); // 存档里读回来的数字也转义（虎扑安全复核 2026-11-27）
+  return `<svg viewBox="0 0 44 44" class="ring" aria-label="综评 ${v}">
     <circle cx="22" cy="22" r="${r}" fill="rgba(5,8,15,0.72)" stroke="rgba(255,255,255,0.14)" stroke-width="4"/>
     <circle cx="22" cy="22" r="${r}" fill="none" stroke="${ringColor(ovr)}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 22 22)"/>
     <text x="22" y="16" text-anchor="middle" font-size="5.6" fill="#C9D2E3" font-family="Microsoft YaHei UI, sans-serif">综评</text>
-    <text x="22" y="29.5" text-anchor="middle" font-size="14.5" font-weight="900" fill="#fff" font-family="Bahnschrift, Arial, sans-serif">${ovr}</text>
+    <text x="22" y="29.5" text-anchor="middle" font-size="14.5" font-weight="900" fill="#fff" font-family="Bahnschrift, Arial, sans-serif">${v}</text>
   </svg>`;
 }
 // 卡面水印印的是英文城市名（不印队名），长的城市名缩小字号，免得只露出半截
@@ -147,7 +148,7 @@ function tallCard(p, opts = {}) {
     <div class="tc-word${wordFit(kit.word)}">${kit.word}</div>
     <div class="tc-fig">${Avatar.avatarSVG(p, { bare: true })}</div>
     <div class="tc-ring">${ringSVG(p.ovr)}</div>
-    <div class="tc-meta">${num !== undefined ? `#${num}<br>` : ''}${E.POS_LABEL[p.pos] || ''}${p.bondPlus ? `<br><span class="tc-bond">🔗+${p.bondPlus}</span>` : ''}</div>
+    <div class="tc-meta">${num !== undefined ? `#${esc(num)}<br>` : ''}${E.POS_LABEL[p.pos] || ''}${p.bondPlus ? `<br><span class="tc-bond">🔗+${esc(p.bondPlus)}</span>` : ''}</div>
     ${opts.badge ? `<div class="tc-badge">${opts.badge}</div>` : ''}
     <div class="tc-name">${first ? `<small>${esc(first)}</small>` : ''}<b${last.length >= 9 ? ' class="xl"' : last.length >= 7 ? ' class="lg"' : ''}>${esc(last)}</b></div>
   </${tag}>`;
@@ -460,7 +461,7 @@ function walkout(p0) {
       <div class="w4-top">${n ? `<span>${n}</span><i></i>` : ''}<span>${esc(p.pos || '')}</span></div>
       <div class="w4-team">${esc(walkoutLine(p))}</div>
       <div class="w4-card">${tallCard(p, { badge: '传奇' }).replace('class="tcard', 'class="tcard rank-legend')}</div>
-      <div class="w4-info"><b>${esc(p.name)}</b><small>${WO_POS[p.pos] || ''}</small><span>总评 ${p.ovr}</span></div>
+      <div class="w4-info"><b>${esc(p.name)}</b><small>${WO_POS[p.pos] || ''}</small><span>总评 ${esc(p.ovr)}</span></div>
       <small class="w4-tap">点击屏幕继续</small>`;
     document.body.appendChild(ov);
     // 号码、位置闪进来后多停一会儿（约 1 秒）再散开亮球队；球员卡 1.8 秒亮起，

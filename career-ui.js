@@ -514,15 +514,17 @@ async function seasonStory() {
   const s = run.story || (run.story = C.simulateSeason(me, star));
   save();
   const L = s.line, PL = s.playoffLine;
+  // 这些数据（赛季结果、球员名）存在本机存档里，读回来再拼进 HTML：每一项都过 esc（虎扑安全复核 2026-11-27）
+  const sn = esc(short(star.name)), sig = sigOf(me);
   const lines = [
     `<p class="eyebrow">2026-27 赛季</p>`,
-    `<p>10 月，揭幕战。${run.team.slice(0, 5).some((p) => p.isMe) ? '你首发出场 28 分钟' : '你替补登场 14 分钟'}，${L.pts >= 12 ? `砍下 ${Math.round(L.pts + 4)} 分，球迷开始记住你的名字。` : `拿了 ${Math.max(2, Math.round(L.pts - 2))} 分，${short(star.name)}拍了拍你的肩膀。`}</p>`,
-    `<p>12 月，${short(star.name)}被评为月最佳球员，你也打出了单场生涯新高 <b>${s.career} 分</b>。</p>`,
-    `<p>全明星周末，你在新秀挑战赛上${sigOf(me) ? `秀出${sigOf(me).name}，解说喊破了音：“这是${short(sigOf(me).star)}附体了吗？！”` : me.attrs.弹跳 >= 80 ? '一记暴扣点燃全场' : me.attrs['3分'] >= 80 ? '连中 5 记三分' : '送出 8 次助攻'}</p>`,
-    `<p>常规赛结束：${esc(s.teamCN)} <b>${s.wins} 胜 ${s.losses} 负</b>，${s.conf}第 ${s.seed}。</p>`,
-    `<div class="statline"><span>你的常规赛场均</span><b>${L.pts} 分 · ${L.reb} 板 · ${L.ast} 助 · ${L.stl} 断 · ${L.blk} 帽</b><small>投篮 ${L.fg}% · 三分 ${L.tp}%${s.rookieAward ? ` · ${s.rookieAward}` : ''}</small></div>`,
-    ...s.rounds.map((r, i) => `<p>${r.name}：${esc(s.teamCN)} <b>${r.score}</b> ${esc(r.opp)}。${i === 3 ? `总冠军！` : i === 2 ? (r.score === '4-3' ? `${short(star.name)}抢七砍下 40 分。` : `${short(star.name)}系列赛场均 30+。`) : ''}</p>`),
-    `<div class="statline gold"><span>你的季后赛场均</span><b>${PL.pts} 分 · ${PL.reb} 板 · ${PL.ast} 助</b><small>FMVP：${esc(s.fmvp)}</small></div>`,
+    `<p>10 月，揭幕战。${run.team.slice(0, 5).some((p) => p.isMe) ? '你首发出场 28 分钟' : '你替补登场 14 分钟'}，${L.pts >= 12 ? `砍下 ${esc(Math.round(L.pts + 4))} 分，球迷开始记住你的名字。` : `拿了 ${esc(Math.max(2, Math.round(L.pts - 2)))} 分，${sn}拍了拍你的肩膀。`}</p>`,
+    `<p>12 月，${sn}被评为月最佳球员，你也打出了单场生涯新高 <b>${esc(s.career)} 分</b>。</p>`,
+    `<p>全明星周末，你在新秀挑战赛上${sig ? `秀出${esc(sig.name)}，解说喊破了音：“这是${esc(short(sig.star))}附体了吗？！”` : me.attrs.弹跳 >= 80 ? '一记暴扣点燃全场' : me.attrs['3分'] >= 80 ? '连中 5 记三分' : '送出 8 次助攻'}</p>`,
+    `<p>常规赛结束：${esc(s.teamCN)} <b>${esc(s.wins)} 胜 ${esc(s.losses)} 负</b>，${esc(s.conf)}第 ${esc(s.seed)}。</p>`,
+    `<div class="statline"><span>你的常规赛场均</span><b>${esc(L.pts)} 分 · ${esc(L.reb)} 板 · ${esc(L.ast)} 助 · ${esc(L.stl)} 断 · ${esc(L.blk)} 帽</b><small>投篮 ${esc(L.fg)}% · 三分 ${esc(L.tp)}%${s.rookieAward ? ` · ${esc(s.rookieAward)}` : ''}</small></div>`,
+    ...s.rounds.map((r, i) => `<p>${esc(r.name)}：${esc(s.teamCN)} <b>${esc(r.score)}</b> ${esc(r.opp)}。${i === 3 ? `总冠军！` : i === 2 ? (r.score === '4-3' ? `${sn}抢七砍下 40 分。` : `${sn}系列赛场均 30+。`) : ''}</p>`),
+    `<div class="statline gold"><span>你的季后赛场均</span><b>${esc(PL.pts)} 分 · ${esc(PL.reb)} 板 · ${esc(PL.ast)} 助</b><small>FMVP：${esc(s.fmvp)}</small></div>`,
     `<section class="result-banner win pop"><h2>🏆 2026-27 总冠军</h2><p class="muted">${esc(s.city)} · ${esc(me.name)} 新秀赛季就戴上了戒指</p></section>`,
   ];
   app.innerHTML = `<section class="story card" id="story"></section><div id="after"></div><button class="btn btn-ghost" id="skip">跳过</button>`;
