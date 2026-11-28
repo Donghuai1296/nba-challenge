@@ -1114,14 +1114,20 @@ function cardStage(stage) {
     if (drawing || !run.draws) return;
     drawing = true;
     // 真人点击：按钮先变暗、这一帧画出来，再发 10 张卡（一次要建 10 张带照片的卡，低端机上要几百毫秒）
-    if (userTap()) { const b = e.currentTarget; tapBusy(true, b); await new Promise((r) => afterPaint(r)); tapBusy(false, b); }
-    run.draws--;
-    const cards = E.gacha(10);
-    run.signing = { cards, signed: [], pick: null, swaps: [] };
-    save();
-    document.getElementById('dcCards').textContent = `剩 ${run.draws} 次`;
-    stage.innerHTML = '';
-    await drawCards(cards, { host: stage, title: '十 连 抽', sub: '冠军球队夺冠赛季球员', done: '一键替换并签约' });
+    //   同时亮顶部进度条（game.js 的 busyBar），翻牌弹层建好就收起
+    const tapped = userTap();
+    if (tapped) { const b = e.currentTarget; tapBusy(true, b); busyBar(true); await new Promise((r) => afterPaint(r)); tapBusy(false, b); }
+    let shown;
+    try {
+      run.draws--;
+      const cards = E.gacha(10);
+      run.signing = { cards, signed: [], pick: null, swaps: [] };
+      save();
+      document.getElementById('dcCards').textContent = `剩 ${run.draws} 次`;
+      stage.innerHTML = '';
+      shown = drawCards(cards, { host: stage, title: '十 连 抽', sub: '冠军球队夺冠赛季球员', done: '一键替换并签约' });
+    } finally { if (tapped) busyBar(false); }
+    await shown;
     drawing = false;
     finishSigning(true);
     cardsPage('cards'); // 留在抽卡页：最上面是签约结果，下面还能接着抽

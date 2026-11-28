@@ -38,9 +38,12 @@
   // 再加两道保险：① 两个名字最多只差一两个字（否则「罗伯特·威廉姆斯 / 帕特里克·威廉姆斯」也会被当成一个人）；
   // ② 同一份名单里本来就同时存在的两个人不算（雷霆的杰伦·威廉姆斯和杰林·威廉姆斯、现役的勒布朗和布朗尼）
   const normName = (s) => String(s || '').replace(/[-·・\s.]/g, '');
+  let lcsBuf = new Int32Array(32); // 复用同一块缓冲区：开局要比对十几万对名字，每次新建数组的开销比计算本身还大
   function lcsLen(a, b) {
-    const dp = Array(b.length + 1).fill(0);
-    for (let i = 1; i <= a.length; i++) { let prev = 0; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : Math.max(dp[j], dp[j - 1]); prev = t; } }
+    if (lcsBuf.length < b.length + 1) lcsBuf = new Int32Array(b.length + 1);
+    const dp = lcsBuf;
+    dp.fill(0, 0, b.length + 1);
+    for (let i = 1; i <= a.length; i++) { let prev = 0; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : (dp[j] > dp[j - 1] ? dp[j] : dp[j - 1]); prev = t; } }
     return dp[b.length];
   }
   function editDist(a, b) {
@@ -48,7 +51,30 @@
     for (let i = 1; i <= a.length; i++) { let prev = dp[0]; dp[0] = i; for (let j = 1; j <= b.length; j++) { const t = dp[j]; dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; } }
     return dp[b.length];
   }
-  const looksSame = (x, y) => lcsLen(x, y) >= 4 && editDist(x, y) <= Math.max(2, Math.round(Math.min(x.length, y.length) * 0.3));
+  // 先用三道不会改变结果的快速判断排除，再做完整比对（2026-11-28 响应时间修复任务 repair_task_8c9ae246…）：
+  //   打开游戏时 limitGachaPool 要给 360 名卡池球员找照片，约 1.6 万次比对 + 名单两两比对（buildCoexist），
+  //   线上安卓 X5 采样里这段占主线程 250～330ms，最热的是 lcsLen。
+  //   ① 公共子序列不会比短的那个名字长：短的不到 4 个字，一定不是同一人；
+  //   ② 编辑距离不小于两个名字的长度差：长度差超过允许的距离，一定不是同一人；
+  //   ③ 公共子序列不超过两个名字共有的字数（按出现次数算）：共有的字不到 4 个，一定不是同一人（share4，用位标记，不分配内存）
+  //   核对：761 个名字两两 28.9 万对，新旧判断 0 处不同，卡池和 886 名球员的照片完全一致（scratchpad/fuzzy-equiv.js）
+  const share4 = (x, y) => {
+    if (x.length > 30) return true;
+    let used = 0, n = 0;
+    for (let j = 0; j < y.length; j++) {
+      const c = y.charCodeAt(j);
+      for (let i = 0; i < x.length; i++) if (!(used & (1 << i)) && x.charCodeAt(i) === c) { used |= 1 << i; if (++n >= 4) return true; break; }
+    }
+    return false;
+  };
+  const looksSame = (x, y) => {
+    const minLen = Math.min(x.length, y.length);
+    if (minLen < 4) return false;
+    const limit = Math.max(2, Math.round(minLen * 0.3));
+    if (Math.abs(x.length - y.length) > limit) return false;
+    if (!share4(x, y)) return false;
+    return lcsLen(x, y) >= 4 && editDist(x, y) <= limit;
+  };
   let coexist = null; // 同一份名单里同时存在、长得像但其实是两个人的名字对
   function buildCoexist() {
     coexist = new Set();

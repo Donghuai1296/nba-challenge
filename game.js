@@ -337,6 +337,11 @@ const setStage = (L) => {
   s.setProperty('--o1a', c1);
   s.setProperty('--o2a', L.boss ? 'rgba(255, 107, 61, 0.14)' : 'rgba(242, 193, 78, 0.12)');
 };
+// 点完要干重活、但不换页的地方（「跳过」出结果、「开始 10 连抽」发牌、翻牌弹层「一键替换并签约」）：和 go 一样亮顶部进度条，干完收起。
+//   2026-11-28 响应时间修复任务 repair_task_8c9ae246…：以前这几处只把按钮变暗，这一帧画完画面就不再变化，
+//   玩家看到的是按钮暗着、整屏不动，直到新内容画出来（浏览器也按这个时刻算「有反馈」）。
+//   进度条是独立图层、在合成线程上动画，主线程忙着画新内容时也一直在走。本地追踪「跳过」：64～216ms → 32～56ms，出结果的时间不变
+const busyBar = (on) => document.documentElement.classList.toggle('page-busy', on);
 const renderPage = (fn, args) => { if (window.setNav) setNav(null); setStage(null); fn(...args); window.scrollTo({ top: 0 }); };
 const go = (fn, ...args) => {
   const seq = ++goSeq;
@@ -557,7 +562,8 @@ function drawCards(players, { title, sub = '', done = '收下', host = null, wal
         if (b.disabled) return;
         b.disabled = true;
         tapBusy(true, b);
-        afterPaint(close);
+        busyBar(true);
+        afterPaint(() => { try { close(); } finally { busyBar(false); } });
       };
     };
 
@@ -941,7 +947,8 @@ function match() {
     const b = e.currentTarget;
     b.disabled = true;
     b.textContent = '正在出结果……';
-    afterPaint(finish);
+    busyBar(true);
+    afterPaint(() => { try { finish(); } finally { busyBar(false); } });
   };
   // Boss 关：先放 Boss 登场特效（点屏幕跳过），再开始直播
   const startLive = () => { if (!over && !halted) timer = setTimeout(step, 300); };
