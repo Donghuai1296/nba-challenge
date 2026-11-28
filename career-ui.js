@@ -42,15 +42,17 @@ detailPanel = function (p, note = '') {
 let intro = null; // { star, answers, hidden }
 const starOf = (name) => C.SUPERSTARS.find((s) => s.name === name);
 // 逐句弹出的小故事：每句间隔 0.18 秒（CSS 动画），按钮跟着最后一句出来，随时能点
+// 按钮放在屏幕中下方（2026-11-28 用户：「中场休息，把说出我最喜欢的球员调整至手机中下方」——单手拇指够得着；故事长过一屏就跟在后面）
 function tell(lines, eyebrow, btnText, next) {
   const d = (i) => `style="animation-delay:${(i * 0.18).toFixed(2)}s"`;
-  app.innerHTML = `<section class="story card" id="story">${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}
+  app.innerHTML = `<div class="tell"><section class="story card" id="story">${eyebrow ? `<p class="eyebrow">${eyebrow}</p>` : ''}
     ${lines.map((l, i) => `<p class="line-in" ${d(i)}>${l}</p>`).join('')}</section>
-    <button class="btn btn-primary line-in" id="next" ${d(lines.length)}>${btnText}</button>`;
+    <button class="btn btn-primary line-in" id="next" ${d(lines.length)}>${btnText}</button></div>`;
   document.getElementById('next').onclick = next;
 }
 function halftime() {
   intro = { answers: [] };
+  if (typeof loadHupuNick === 'function') loadHupuNick(); // 虎扑版：先把虎扑昵称读好，到起名页就能直接填上
   tell([
     '这个周末，你终于抢到了一张职业联赛的现场球票。', // 用户 11-19：不要「普通虎扑 JR」的说法
     '中场休息，你正盯着场边的啦啦队看得入神——大屏幕突然切到了你的脸。',
@@ -105,31 +107,17 @@ function airball() {
     '球在空中划出一道完美的弧线……<b>三不沾。</b>',
     `它不偏不倚，正好砸在 <b>${esc(n)}</b> 的脑袋上。`,
     `全场安静了一秒，然后爆笑。${esc(n)} 揉着脑袋走过来，上下打量了你一眼：`,
-    `<span class="quote">“兄弟，扔得够远，就是准头差点。先回答我一个问题——你平时是什么打法？”</span>`,
-  ], '🏀 超远投篮挑战', '认真回答', () => go(() => quiz(0)));
+    `<span class="quote">“兄弟，扔得够远，就是准头差点。你叫什么名字？”</span>`,
+  ], '🏀 超远投篮挑战', '报上名字', () => {
+    // 2026-11-28 用户：删掉「你平时是什么打法」，不再继承明星球员的能力值，直接进捏脸和起名；
+    //   之后选位置 → 创建球员 → 加入球队（以前是 问答 → 创建球员 → 起名捏脸 → 加入球队）
+    build = { name: '', look: null };
+    go(lookPage, starOf(intro.star), () => go(createPos), '下一步：选位置');
+  });
 }
-// 「你平时是什么打法？」7 个答案 = 7 位顶级球员最强的一项（三分库里、2分亚历山大、终结东契奇、传球约基奇、篮板文班、力量字母哥、弹跳爱德华兹）。
-// 选完直接进建球员：这一项锁定成那位球星的数值；位置默认用他的位置，名字用上次的（建球员页上可以改）
-function quiz(i) {
-  const Q = C.QUIZ[i];
-  app.innerHTML = `
-    <p class="eyebrow">🏀 ${esc(short(intro.star))} 的问题</p>
-    <h2>${esc(Q.q)}</h2>
-    <div class="quiz">${Q.a.map(([t, key], k) => { const s = C.playStyle(key); return `<button class="qa qa-style" data-k="${k}">
-      <span class="qa-av">${Avatar.avatarSVG(starOf(s.star) || { name: s.star, from: '现役' })}</span>
-      <span class="qa-t">${esc(t)}<small>${s.attr} <b class="num">${s.v}</b> · 和${esc(s.nick)}一样</small></span></button>`; }).join('')}</div>`;
-  app.querySelectorAll('.qa').forEach((b) => (b.onclick = () => {
-    intro.answers[i] = Number(b.dataset.k);
-    intro.style = C.hiddenFromAnswers(intro.answers);
-    intro.hidden = null; // 不再有神秘技能
-    startBuild(C.playStyle(intro.style).pos, store.get('nba-myname', '') || '无名新秀');
-  }));
-}
-// 进建球员（选数值）：打法对应的那一项先锁定
-function startBuild(pos, name) {
-  build = { name, pos, locked: {}, reTeam: 3, rePlayers: 3, team: null, shown: [], pick: null };
-  const s = intro && intro.style && C.playStyle(intro.style);
-  if (s) build.locked[s.attr] = { v: s.v, from: s.star, down: false, hidden: true };
+// 进建球员（选数值）。named：名字和造型已经在前面起好了（新流程），建完直接加入球队
+function startBuild(pos, keep = {}) {
+  build = { name: keep.name || '', look: keep.look, named: !!keep.named, pos, locked: {}, reTeam: 3, rePlayers: 3, team: null, shown: [], pick: null };
   go(() => spinTeam(true));
 }
 // 你的招牌：新开局是「打法」（比如 招牌3分，和库里一样），老存档是以前的神秘技能
@@ -142,22 +130,18 @@ function sigOf(me) {
 // ---------- 1. 选位置（名字在进入联盟前和造型一起起，见 lookPage） ----------
 let build = null; // 建球员的进度
 function createPos(sel = null) {
-  const h = intro && intro.style && C.playStyle(intro.style);
+  const fav = intro && intro.star && starOf(intro.star);
   app.innerHTML = `
     <div class="spread"><h2>选择我的位置</h2><button class="muted small" id="back">返回</button></div>
-    <p class="muted small">你会成为一名新秀，加入一位明星所在的球队。名字在进入联盟前和造型一起起。</p>
-    ${h ? `<p class="small hidden-chip">你的打法：${h.attr} ${h.v}（和${esc(h.nick)}一样）· 推荐位置：${E.POS_LABEL[h.pos]}</p>` : ''}
+    <p class="muted small">你会成为一名新秀，加入${fav ? ` ${esc(short(fav.name))} ` : '一位明星'}所在的球队。</p>
     <div class="pos-pick">${E.POS.map((p) => `<button class="pos-btn ${sel === p ? 'sel' : ''}" data-p="${p}">${posCourt(p)}
-      <span class="pos-txt"><b>${E.POS_LABEL[p]}<em>${p}</em></b><small>${POS_ROLE[p]}</small></span>${h && h.pos === p ? '<i class="pos-rec">推荐</i>' : ''}</button>`).join('')}</div>
+      <span class="pos-txt"><b>${E.POS_LABEL[p]}<em>${p}</em></b><small>${POS_ROLE[p]}</small></span>${fav && fav.pos === p ? `<i class="pos-rec">${esc(short(fav.name))}的位置</i>` : ''}</button>`).join('')}</div>
     <button class="btn btn-primary sticky-cta" id="ok" ${sel ? '' : 'disabled'}>确认位置</button>`;
-  document.getElementById('back').onclick = () => go(build ? buildScreen : home);
+  // 返回：建球员建到一半 → 回建球员；刚起完名字 → 回起名页；其他 → 首页
+  document.getElementById('back').onclick = () => go(build && build.team ? buildScreen : build && fav ? () => lookPage(fav, () => go(createPos), '下一步：选位置') : home);
   app.querySelectorAll('.pos-btn').forEach((b) => (b.onclick = () => createPos(b.dataset.p)));
-  // 改了位置：建球员从头来（打法那一项照样锁定），已经起好的名字、选好的造型留着
-  document.getElementById('ok').onclick = () => {
-    const keep = build ? { name: build.name, look: build.look } : null;
-    startBuild(sel, keep ? keep.name : store.get('nba-myname', '') || '无名新秀');
-    if (keep && keep.look != null) build.look = keep.look;
-  };
+  // 改了位置：建球员从头来，已经起好的名字、选好的造型留着
+  document.getElementById('ok').onclick = () => startBuild(sel, build ? { name: build.name, look: build.look, named: build.named } : {});
 }
 
 // ---------- 2. 建球员：摇一支现役球队，挑一名球员，锁定他的一项能力，一共 11 项 ----------
@@ -289,7 +273,13 @@ function buildScreen() {
       toast(`${C.TEAM_CN[build.team.code]}换了一批球员`);
       buildScreen();
     };
-  } else document.getElementById('finish').onclick = () => (intro && intro.star ? go(lookPage, starOf(intro.star), () => joinTeam(starOf(intro.star))) : go(pickStarCareer));
+  } else document.getElementById('finish').onclick = () => {
+    const fav = intro && intro.star && starOf(intro.star);
+    if (!fav) return go(pickStarCareer);
+    // 新流程：名字和造型已经在投篮之后起好了，建完直接加入球队；没起过（老流程）再去起名页
+    if (build.named) return go(joinTeam, fav);
+    go(lookPage, fav, () => joinTeam(fav));
+  };
 }
 // ---------- 造型：进入联盟前，从 15 个造型（faces.js）里自己选一个 ----------
 //   2026-11-19：一开始是随机 + 换 2 次，用户说「不要随机，让玩家自己从 15 个人里面选」
@@ -297,7 +287,23 @@ function buildScreen() {
 // 2026-11-27 用户：「单独给玩家设计个起名字环节，可以和捏脸一起」——这一页改成「起个名字，挑个造型」：
 //   名字框在大卡下面，打字时大卡上的名字跟着变；下面按你的打法给 3 个虎扑味的名字建议（点一下填进去，🎲 换一批）；
 //   不起名就叫「无名新秀」。虎扑版自己打的名字要先过内容安全检测（GameHupu.checkText），建议的名字是游戏自带的，不用检测
-const DEFAULT_NAME = '无名新秀';
+// 2026-11-28 用户：「玩家姓名不再是无名新秀，默认是虎扑ID，也可以自己改名或者是随机姓名」：
+//   默认名字依次取：上次起过的名字 → 虎扑昵称（GameHupu.userName，最多 8 个字）→ 随机名字；🎲 直接换一个随机名字填进去。
+//   虎扑昵称是虎扑审核过的，和游戏自带的名字一样不再过内容检测；自己打的名字照旧要检测
+const DEFAULT_NAME = '无名新秀'; // 老存档里的默认名字（新开局不再用）
+let hupuNick = ''; // 这次打开游戏读到的虎扑昵称（截到 8 个字）
+let nickLoading = null;
+// 读虎扑昵称（只读一次）；接口出错按虎扑的要求把平台给的提示显示出来，游戏照常用随机名字
+function loadHupuNick() {
+  if (nickLoading) return nickLoading;
+  if (!window.GameHupu || !window.GameHupu.userName) return (nickLoading = Promise.resolve(''));
+  nickLoading = window.GameHupu.userName().then((r) => {
+    if (r && r.msg) toast(r.msg);
+    hupuNick = r && r.name ? cut8(r.name) : '';
+    return hupuNick;
+  }, () => '');
+  return nickLoading;
+}
 const NAME_IDEAS = {
   '3分': ['三分雨神', '远投狙击手', '后撤步大师', '中场神射', '三分外线王'],
   '2分': ['中投大师', '肘区之王', '急停跳投侠', '中距离教父', '翻身跳投王'],
@@ -308,28 +314,31 @@ const NAME_IDEAS = {
   '弹跳': ['起飞少年', '弹簧腿', '暴扣少年', '天花板跳跃', '飞天新秀'],
 };
 const NAME_COMMON = ['板凳奇兵', '看台逆袭者', '步行街新星', '夜场之王', '空降新秀', '野球场传说', '冷血杀手', '关键先生'];
+// 随机名字：所有建议名字放一起抽（以前按「打法」给对应的几个，打法问答 11-28 删掉了）
+const NAME_POOL = [...NAME_COMMON, ...Object.values(NAME_IDEAS).flat()];
 function nameIdeas(n = 3, avoid = []) {
-  const s = intro && intro.style && C.playStyle(intro.style);
-  const own = E.shuffle((s && NAME_IDEAS[s.attr]) || []).filter((x) => !avoid.includes(x));
-  const rest = E.shuffle(NAME_COMMON).filter((x) => !avoid.includes(x));
-  return [...own.slice(0, 2), ...rest].slice(0, n);
+  return E.shuffle(NAME_POOL.filter((x) => !avoid.includes(x))).slice(0, n);
 }
-const isPresetName = (s) => s === DEFAULT_NAME || NAME_COMMON.includes(s) || Object.values(NAME_IDEAS).some((l) => l.includes(s));
-function lookPage(star, next) {
+const randomName = (avoid = []) => nameIdeas(1, avoid)[0] || NAME_COMMON[0];
+const isPresetName = (s) => s === DEFAULT_NAME || NAME_POOL.includes(s) || (!!hupuNick && s === hupuNick);
+// 名字最多 8 个字（按字符算，表情不会被切开）
+const cut8 = (s) => Array.from(String(s || '').trim()).slice(0, 8).join('');
+function lookPage(star, next, nextLabel = '进入联盟') {
   const code = C.teamOfStar(star).team;
   const { kit } = Avatar.kitOf({ name: build.name, team: code, from: '现役', season: '本季', isMe: true, num: 7 });
   if (build.look == null) build.look = 0;
-  const named = build.name && build.name !== DEFAULT_NAME ? build.name : ''; // 上次起过的名字（老玩家）先填上
+  // 先填的名字：这次已经起过的 → 上次起过的（老玩家）→ 虎扑昵称（异步读到再填）→ 随机名字
+  const stored = store.get('nba-myname', '');
+  const named = build.name && build.name !== DEFAULT_NAME ? build.name : stored && stored !== DEFAULT_NAME ? stored : hupuNick || randomName();
   // 大卡：15 个造型一开始全部画好，点小卡只切换显示哪一张（不在点击时往页面写 HTML——
   //   虎扑安全检测把点击时重写大卡列为需人工复核，2026-11-26 用户贴来让改）；名字也只用 textContent 改
-  const big = (i) => `<div class="lb" data-i="${i}"${i === build.look ? '' : ' hidden'}>${Faces.svg(i, kit, { bare: true })}<div class="lc-name"><small>${esc(Faces.LOOKS[i].name)}</small><b class="lc-me">${esc(named || DEFAULT_NAME)}</b></div></div>`;
-  const ideaBtns = (list) => list.map((x) => `<button type="button" class="name-idea" data-n="${esc(x)}">${esc(x)}</button>`).join('');
+  const big = (i) => `<div class="lb" data-i="${i}"${i === build.look ? '' : ' hidden'}>${Faces.svg(i, kit, { bare: true })}<div class="lc-name"><small>${esc(Faces.LOOKS[i].name)}</small><b class="lc-me">${esc(named)}</b></div></div>`;
   app.innerHTML = `<p class="eyebrow">🪞 进入联盟之前</p><h2>起个名字，挑个造型</h2>
     <div class="look-stage"><div class="look-card done" id="lookBig" style="--c1:${kit.primary}">${Faces.LOOKS.map((L, i) => big(i)).join('')}</div></div>
     <section class="name-box">
-      <label class="name-label" for="myName">你的名字<small>最多 8 个字，不起就叫「${DEFAULT_NAME}」</small></label>
+      <label class="name-label" for="myName">你的名字<small>最多 8 个字，可改可随机</small></label>
       <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" autocomplete="off" value="${esc(named)}">
-      <div class="name-ideas"><span>试试：</span><span id="ideas">${ideaBtns(nameIdeas())}</span><button type="button" class="name-idea dice" id="moreIdeas" aria-label="换一批名字">🎲</button></div>
+      <div class="name-ideas"><span>试试：</span><span id="ideas"></span><button type="button" class="name-idea dice" id="moreIdeas" aria-label="随机一个名字">🎲 随机</button></div>
     </section>
     <p class="look-sub">挑个造型（点小卡看大图）</p>
     <div class="look-grid">${Faces.LOOKS.map((L, i) => `<button class="look-thumb${i === build.look ? ' sel' : ''}" data-i="${i}" style="--c1:${kit.primary}" aria-label="${esc(L.name)}">
@@ -338,23 +347,42 @@ function lookPage(star, next) {
   const card = document.getElementById('lookBig');
   const okBtn = document.getElementById('lookOk');
   const input = document.getElementById('myName');
-  const nameNow = () => input.value.trim() || DEFAULT_NAME;
+  let fallback = named; // 名字框清空时用的名字
+  let touched = false; // 玩家自己动过名字（打字、点建议、点随机）以后，读到虎扑昵称也不再覆盖
+  const nameNow = () => input.value.trim() || fallback;
   // 按钮、大卡上的名字都是纯文字，用 textContent 写
   const refresh = () => {
-    okBtn.textContent = `就叫「${nameNow()}」，进入联盟`;
+    okBtn.textContent = `就叫「${nameNow()}」，${nextLabel}`;
     card.querySelectorAll('.lc-me').forEach((x) => (x.textContent = nameNow()));
   };
-  refresh();
-  input.addEventListener('input', refresh);
-  const bindIdeas = () => app.querySelectorAll('#ideas .name-idea').forEach((b) => (b.onclick = () => { input.value = b.dataset.n; refresh(); }));
-  bindIdeas();
-  document.getElementById('moreIdeas').onclick = () => {
-    const shown = [...app.querySelectorAll('#ideas .name-idea')].map((b) => b.dataset.n);
-    const box = document.getElementById('ideas');
-    box.textContent = '';
-    for (const x of nameIdeas(3, shown)) { const b = document.createElement('button'); b.type = 'button'; b.className = 'name-idea'; b.dataset.n = x; b.textContent = x; box.appendChild(b); }
-    bindIdeas();
+  const setName = (n) => { input.value = n; touched = true; refresh(); };
+  // 建议的名字：有虎扑昵称时第一个是它（改了名还能一键改回来），后面 3 个随机；都用 textContent 写
+  const ideas = document.getElementById('ideas');
+  const showIdeas = () => {
+    const avoid = [input.value.trim(), ...[...ideas.querySelectorAll('.name-idea')].map((b) => b.dataset.n)];
+    ideas.textContent = '';
+    const list = hupuNick ? [hupuNick, ...nameIdeas(2, [...avoid, hupuNick])] : nameIdeas(3, avoid);
+    for (const x of list) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'name-idea' + (x === hupuNick ? ' nick' : ''); b.dataset.n = x;
+      b.textContent = x === hupuNick ? `虎扑昵称：${x}` : x;
+      b.onclick = () => setName(x);
+      ideas.appendChild(b);
+    }
   };
+  refresh();
+  showIdeas();
+  input.addEventListener('input', () => { touched = true; refresh(); });
+  // 🎲：直接换一个随机名字填进去，下面的建议也换一批
+  document.getElementById('moreIdeas').onclick = () => { setName(randomName([input.value.trim()])); showIdeas(); };
+  // 虎扑版：读虎扑昵称（开局中场休息时已经开始读了，一般这时已经有了）；读到以后，玩家还没动过名字就换成昵称
+  if (!hupuNick && window.GameHupu && window.GameHupu.userName) {
+    loadHupuNick().then(() => {
+      if (!hupuNick || !input.isConnected) return;
+      if (!touched && !(stored && stored !== DEFAULT_NAME) && !(build.name && build.name !== DEFAULT_NAME)) { input.value = hupuNick; fallback = hupuNick; refresh(); }
+      showIdeas();
+    });
+  }
   app.querySelectorAll('.look-thumb').forEach((b) => (b.onclick = () => {
     const i = Number(b.dataset.i);
     if (i === build.look) return;
@@ -375,6 +403,7 @@ function lookPage(star, next) {
       if (!r.ok) { toast(r.msg); input.focus(); return; }
     }
     build.name = name;
+    build.named = true;
     store.set('nba-myname', name);
     next();
   };
@@ -386,6 +415,7 @@ function makeMe() {
     look: build.look != null ? build.look : Math.floor(Math.random() * Faces.count) }; // 造型（lookPage 随机的）
   if (intro && intro.style) Object.assign(me, { style: intro.style, origin: 'halftime' });
   else if (intro && intro.hidden && C.HIDDEN[intro.hidden]) Object.assign(me, { hidden: intro.hidden, skill: C.HIDDEN[intro.hidden].skill, origin: 'halftime' }); // 老流程
+  else if (intro && intro.star) me.origin = 'halftime'; // 11-28 起没有打法问答：照样是中场投篮砸中球星进的联盟（球队故事开头要用）
   me.ovr = C.ovrFromAttrs(attrs, me.pos);
   Object.assign(me, C.projectLine(me));
   return me;
@@ -1788,7 +1818,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .mp-act{display:grid;gap:10px}
 .grow-up{display:grid;gap:2px;margin:6px 0;padding:8px 10px;border-radius:10px;background:linear-gradient(90deg,rgba(242,140,40,.22),rgba(242,140,40,.04));border-left:3px solid #ff8a4a}
 .grow-up em{font-style:normal;color:#ff8a4a;font-weight:800}.grow-up small{color:#C3CADA}
-.line-in{animation:lineIn .3s ease-out both}@keyframes lineIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.line-in{animation:lineIn .3s ease-out both}
+/* 中场休息、超远投篮这类故事页：按钮放屏幕中下方（拇指够得着）；故事比一屏长就跟在后面（11-28 用户要求） */
+.tell{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 60px);min-height:calc(100svh - 60px)}.tell #next{margin-top:auto;margin-bottom:16vh}@keyframes lineIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .dc-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
 .dc-tabs [role=tab] b{font-size:14px!important;white-space:nowrap}
 .chest-intro{display:grid;gap:12px;padding:10px 0}
@@ -1994,6 +2026,7 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .name-ideas #ideas{display:contents}
 .name-idea{padding:6px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#EEF2F8;font-size:13px}
 .name-idea:active{background:rgba(255,213,74,.2);border-color:#FFD54A}
+.name-idea.nick{border-color:rgba(242,140,40,.6);color:#FFB36B}.name-idea.dice{font-weight:700}
 .name-idea.dice{padding:6px 9px}
 .look-sub{margin:2px 0 -4px;font-size:13px;color:#94A2BC}
 .look-thumb{--c1:#3A4766;position:relative;display:block;width:100%;aspect-ratio:3/3.9;border-radius:9px;overflow:hidden;padding:0;border:1.5px solid rgba(255,255,255,.1);background:linear-gradient(180deg,var(--c1),#070A12 92%);background:linear-gradient(180deg,color-mix(in srgb,var(--c1) 70%,#000),#070A12 92%);color:inherit;font:inherit}
