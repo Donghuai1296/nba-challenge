@@ -2056,9 +2056,10 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .home-hero{position:relative;isolation:isolate;display:grid;justify-items:center;text-align:center;gap:6px;padding:16px 0 2px}
 .home-hero::before{content:"";position:absolute;left:-16px;right:-16px;top:-20px;height:240px;z-index:-1;pointer-events:none;background:radial-gradient(55% 65% at 50% 35%,rgba(242,140,40,.30),transparent 70%)}
 .hh-badge{font-size:12px;padding:3px 10px;border-radius:999px;background:rgba(242,140,40,.12);border:1px solid rgba(242,140,40,.45);color:#FFC58A}
-.hh-title{font-size:66px;line-height:1.02;letter-spacing:.02em;margin:6px 0 0;display:flex;align-items:baseline;gap:2px}
+/* 11-28 用户：「首页诸神黄昏改白色字体，可以调小一点」：整行白字，66px → 52px */
+.hh-title{font-size:52px;line-height:1.02;letter-spacing:.02em;margin:6px 0 0;display:flex;align-items:baseline;gap:2px}
 .hh-title span{color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.5)}
-.hh-title b{font-weight:inherit;background:linear-gradient(180deg,#FFE08A 0%,#F7A23B 45%,#E2541C 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 14px rgba(242,140,40,.45))}
+.hh-title b{font-weight:inherit;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.5)}
 .hh-sub{font-family:var(--display);font-size:19px;letter-spacing:.3em;margin-right:-.3em;color:var(--gold)}
 .hh-pitch{margin-top:8px;font-size:16px;line-height:1.6;color:#DDE4F0}
 .hh-pitch b{color:#FFC58A}

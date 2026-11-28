@@ -406,9 +406,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 启动画面：网页一到就有内容，游戏脚本（约 280 KB）全部加载完、首页画出来时被替换掉。
    以前 #app 是空的，网慢时用户一直看着白屏（2026-11-26 虎扑白屏率 5.41% 的修复任务） */
 .boot { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1; padding: 0 16px; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; background: radial-gradient(60% 45% at 50% 38%, rgba(242,140,40,.22), transparent 70%), var(--bg); }
-.boot-title { margin: 0; font-family: var(--display); font-size: 62px; line-height: 1.02; letter-spacing: .02em; display: flex; gap: 2px; }
+.boot-title { margin: 0; font-family: var(--display); font-size: 50px; line-height: 1.02; letter-spacing: .02em; display: flex; gap: 2px; }
 .boot-title span { color: #fff; }
-.boot-title b { font-weight: inherit; color: #F7A23B; }
+.boot-title b { font-weight: inherit; color: #fff; } /* 和首页一样整行白字（11-28） */
 .boot-sub { margin: 0; font-family: var(--display); font-size: 18px; letter-spacing: .3em; margin-right: -.3em; color: var(--gold); }
 .boot-bar { width: 160px; height: 4px; margin-top: 18px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,.1); }
 .boot-bar i { display: block; width: 40%; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #FFAE55, #F28C28); animation: bootRun 1.1s ease-in-out infinite; }
