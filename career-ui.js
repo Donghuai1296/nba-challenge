@@ -596,14 +596,16 @@ function hupu() {
   const comments = [
     [`${short(run.star)}带飞罢了，${me.name}纯纯混子冠军`, '2.3万'],
     [`场均 ${s.line.pts} 分也配戴戒指？换我上也行`, '1.1万'],
-    [`听说是给教练送了轩尼诗才首发的，懂的都懂`, '8642'],
+    // 11-28 用户：「听说是给教练送了轩尼诗……」这句换成两句话题度高的
+    [`建议把${me.name}的冠军戒指拆成两半，一半给${short(run.star)}，一半给饮水机`, '1.9万'],
+    [`有本事去打历史上那几支王朝，赢一支我倒立洗头`, '1.5万'],
     [`现在的冠军含金量……放 90 年代能打几轮？`, '5120'],
   ];
   // 开局身份带来的专属评论
   const H = sigOf(me);
   if (me.origin === 'halftime') comments.splice(2, 0, [`中场投篮三不沾砸了${short(run.star)}一下，就砸进了职业联盟？这剧本编剧都不敢写`, '2.6万']);
   if (H) comments.push([`就会一招${H.name}，${H.attr}之外全是短板，穷人版${short(H.star)}罢了`, '9877']);
-  const replies = ['冠军就是冠军，不服来打', '历史上的冠军队，我一支一支去赢给你们看', '轩尼诗是真的，戒指也是真的'];
+  const replies = ['冠军就是冠军，不服来打', '历史上的冠军队，我一支一支去赢给你们看', '倒立洗头那位，记得录视频'];
   app.innerHTML = `
     <section class="hupu card">
       <p class="eyebrow">虎扑 · 步行街</p>
