@@ -158,9 +158,58 @@
   const teamPower = (team) =>
     STARTER_W * avgOvr(team.slice(0, 5)) + (1 - STARTER_W) * avgOvr(team.slice(5)) - MISSING_POS_PENALTY * missingPositions(team).length;
 
+  // ---------- 羁绊算进去的排首发（2026-11-28 用户：「一键替换球员优先考虑羁绊后能力值，比如马刺队有 4 名球员，
+  //   95 的吉诺比利就推荐替换 99 的乔丹，替补球员数值优先没有羁绊效果」） ----------
+  // bondTeam(p)：这个人算哪支队的羁绊（game.js 的 bondTeamOf，不传就是老算法：每个位置只看总评）
+  // 首发 5 人里同队最多的那支 n 人（≥3）→ 这 n 人各 +bondBonus(n)；替补没有羁绊，只看总评
+  const bondScore = (starters, bt) => {
+    const cnt = {};
+    for (const p of starters) { const t = bt(p); if (t) cnt[t] = (cnt[t] || 0) + 1; }
+    const n = Math.max(0, ...Object.values(cnt));
+    return bondBonus(n) * n;
+  };
+  // 同一个人反复查球队（现役要翻整个联盟名单）很慢：一次排阵 / 一次替换里按人缓存
+  const bondCache = (bondTeam) => {
+    const memo = new Map();
+    return (p) => {
+      const k = p.isMe ? '#me' : `${p.name}|${p.from || ''}|${p.season || ''}|${p.realTeam || ''}`;
+      if (!memo.has(k)) memo.set(k, bondTeam(p));
+      return memo.get(k);
+    };
+  };
   // 自动排首发：每个位置取该位置总评最高的人（核心球星一定首发），其余按总评进替补
   // coreName 可以是一个名字，也可以是几个名字（核心球星 + 玩家自己），这些人一定首发
-  function arrange(team, coreName) {
+  // 传了 bondTeam：每个位置在本位置前 4 强里挑，选「首发总评 + 羁绊加成」最高的组合（一样高就看首发总评）
+  function arrange(team, coreName, bondTeam) {
+    if (typeof bondTeam !== 'function') return arrangeByOvr(team, coreName);
+    const coreNames = [].concat(coreName || []);
+    const cores = team.filter((p) => coreNames.includes(p.name));
+    if (new Set(cores.map((c) => c.pos)).size !== cores.length) return arrangeByOvr(team, coreName); // 两个核心同位置（不会出现）
+    const bt = bondTeam.cached ? bondTeam : bondCache(bondTeam);
+    const cand = POS.map((pos) => {
+      const c = cores.find((x) => x.pos === pos);
+      return c ? [c] : team.filter((p) => p.pos === pos && !cores.includes(p)).sort((a, b) => b.ovr - a.ovr).slice(0, 4);
+    });
+    let best = null;
+    const pick = [];
+    const visit = (i) => {
+      if (i === POS.length) {
+        const chosen = pick.filter(Boolean);
+        const rest = team.filter((p) => !chosen.includes(p)).sort((a, b) => b.ovr - a.ovr); // 某个位置没人：用剩下总评最高的补满
+        const starters = [...chosen, ...rest.slice(0, 5 - chosen.length)];
+        const raw = starters.reduce((s, p) => s + p.ovr, 0);
+        const score = raw + bondScore(starters, bt);
+        if (!best || score > best.score || (score === best.score && raw > best.raw)) best = { score, raw, starters };
+        return;
+      }
+      if (!cand[i].length) { pick.push(null); visit(i + 1); pick.pop(); return; }
+      for (const p of cand[i]) { pick.push(p); visit(i + 1); pick.pop(); }
+    };
+    visit(0);
+    const starters = best.starters.sort((a, b) => POS.indexOf(a.pos) - POS.indexOf(b.pos));
+    return [...starters, ...team.filter((p) => !starters.includes(p)).sort((a, b) => b.ovr - a.ovr)];
+  }
+  function arrangeByOvr(team, coreName) {
     const left = [...team];
     const take = (p) => left.splice(left.indexOf(p), 1)[0];
     const coreNames = [].concat(coreName || []);
@@ -191,8 +240,8 @@
   }
   // 新人进队换下谁：把他加进来按位置排一次首发，替补里（不含你自己、不含 keep 里的人、不含他本人）总评最低的那个
   //   keep：固定首发、永远不换的人（生涯模式是获得教练信任后的你）
-  function replaceTarget(team, incoming, keep = []) {
-    const lineup = arrange([...team, incoming], keep);
+  function replaceTarget(team, incoming, keep = [], bondTeam) {
+    const lineup = arrange([...team, incoming], keep, bondTeam);
     const bench = lineup.slice(5).filter((x) => x !== incoming && !x.isMe && !keep.includes(x.name));
     const pool = bench.length ? bench : team.filter((x) => !x.isMe && !keep.includes(x.name)); // 理论上不会走到
     if (!pool.length) return null;
@@ -205,15 +254,18 @@
   // 新人进队换下谁（10 连抽、宝箱、Boss 卡共用）：
   //   队里已经有这个人 → 新卡更强就换下旧版本（upgrade）；不比旧的强 → null（不能签，只能换幸运值）
   //   队里没有这个人 → 照旧换下替补里最弱的（replaceTarget）
-  function signTarget(team, incoming, keep = []) {
+  function signTarget(team, incoming, keep = [], bondTeam) {
     const same = sameOnTeam(team, incoming);
     if (same) return !same.isMe && incoming.ovr > same.ovr ? { x: same, i: team.indexOf(same), upgrade: true } : null;
-    return replaceTarget(team, incoming, keep);
+    return replaceTarget(team, incoming, keep, bondTeam);
   }
 
   // 一键替换：从总评最高的卡开始，每张都按上面的规则找替补里最弱的人，比他高就换（核心、你自己不换），最后自动排首发
   //   队里已有同一个人的：更强就升级替换旧版本，不更强就跳过（之后算重复，换幸运值）
-  function autoReplace(team, cards, coreName) {
+  // 传了 bondTeam（生涯模式）：按「排好首发后的球队实力 + 羁绊加成」挑——每轮在所有卡 × 替补里最弱的两个人里，
+  //   找让实力涨得最多的一换，换到不再涨为止。所以凑成羁绊的 95 吉诺比利会比 99 乔丹先签、先首发；替补只看总评
+  function autoReplace(team, cards, coreName, bondTeam) {
+    if (typeof bondTeam === 'function') return autoReplaceBond(team, cards, coreName, bondTeam);
     const keep = [].concat(coreName || []);
     let next = arrange([...team], coreName);
     const swaps = [];
@@ -226,6 +278,37 @@
       swaps.push({ index: i, in: c, out: out.x, upgrade: !!out.upgrade });
     }
     return { team: arrange(next, coreName), swaps };
+  }
+  function autoReplaceBond(team, cards, coreName, bondTeam) {
+    const keep = [].concat(coreName || []);
+    const bt = bondCache(bondTeam);
+    bt.cached = true;
+    const lineup = (t) => arrange(t, coreName, bt);
+    const power = (t) => { const a = lineup(t); return { a, v: teamPower(a) + (STARTER_W * bondScore(a.slice(0, 5), bt)) / 5 }; };
+    let next = lineup([...team]);
+    let base = power(next).v;
+    const pool = cards.map((c, i) => ({ c, i }));
+    const swaps = [];
+    for (;;) {
+      // 能被换下的：替补里（不含你自己、不含固定首发的人）总评最低的两个；同一个人的旧版本只能被更强的版本换（11-26 规则）
+      const bench = next.slice(5).filter((x) => !x.isMe && !keep.includes(x.name)).sort((a, b) => a.ovr - b.ovr).slice(0, 2);
+      let best = null;
+      for (const { c, i } of pool) {
+        const same = sameOnTeam(next, c);
+        const targets = same ? (!same.isMe && !keep.includes(same.name) && c.ovr > same.ovr ? [same] : []) : bench;
+        for (const x of targets) {
+          const t = next.map((y) => (y === x ? { ...c } : y));
+          const r = power(t);
+          if (r.v > base + 1e-9 && (!best || r.v > best.v)) best = { ...r, c, i, x, upgrade: !!same };
+        }
+      }
+      if (!best) break;
+      next = best.a;
+      base = best.v;
+      swaps.push({ index: best.i, in: best.c, out: best.x, upgrade: best.upgrade });
+      pool.splice(pool.findIndex((p) => p.i === best.i), 1);
+    }
+    return { team: next, swaps };
   }
 
   // ---------- 30 个关卡：全部是冠军球队 ----------
@@ -584,7 +667,9 @@
     const pr = { ...d };
     // 你自己：3分决定三分出手多少和准不准，终结决定命中率，罚球看 3分、2分、终结
     if (p.isMe && p.attrs) {
-      const a = p.attrs;
+      // 能力值 + 普通勋章加成（11-28 起勋章只影响比赛数据，不算在能力值里）
+      const bo = p.bonus || {};
+      const a = Object.fromEntries(Object.entries(p.attrs).map(([k, v]) => [k, v + (bo[k] || 0)]));
       pr.s3 = clampN((a['3分'] - 45) / 110, 0.03, 0.6);
       pr.p3 = clampN((p.tp || 33) / 100, 0.2, 0.5);
       pr.p2 = clampN(((p.fg || 46) / 100 - pr.s3 * pr.p3) / (1 - pr.s3), 0.38, 0.72);

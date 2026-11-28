@@ -27,7 +27,7 @@ function attrGrid(p, opts = {}) {
     const g = v == null ? '--' : C.grade(v);
     return `<div class="attr ${opts.clickable ? 'click' : ''} ${opts.locked && opts.locked[k] ? 'locked' : ''} ${bonus[k] ? 'buffed' : ''}" data-attr="${k}">
       <span class="an">${k}</span><span class="ag ${v == null ? '' : C.gradeClass(g)}">${g}</span>
-      <span class="av num">${v == null ? '' : v}${bonus[k] ? `<i class="buff">🏅+${bonus[k]}</i>` : ''}${opts.down && opts.down[k] ? '<i class="down">▼</i>' : ''}</span>
+      <span class="av num">${v == null ? '' : v}${bonus[k] ? `<i class="buff" title="普通勋章加成，只影响比赛数据">（+${bonus[k]}）</i>` : ''}${opts.down && opts.down[k] ? '<i class="down">▼</i>' : ''}</span>
       ${opts.locked && opts.locked[k] ? `<small>${opts.locked[k].hidden ? '★ 打法 · ' : ''}${esc(short(opts.locked[k].from))}</small>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -533,7 +533,7 @@ function benchStep(me, star, t, d) {
 function teamStory(me, star, t, d) {
   const team = d.roster;
   // trusted：开局就点过「一键进入首发」，以后一直固定首发，不用再点
-  run = { v: SAVE_VERSION, medalV: 2, star: star.name, me: me.name, team, level: 0, wins: 0, lives: LIVES, rerolls: 0, draws: 0, signing: null, xp: 0, lv: 1, ups: 0, career: true, story: null, teamCode: t.team, teamLabel: t.cn, trusted: !!d.meStarts };
+  run = { v: SAVE_VERSION, medalV: 2, attrV: 2, star: star.name, me: me.name, team, level: 0, wins: 0, lives: LIVES, rerolls: 0, draws: 0, signing: null, xp: 0, lv: 1, ups: 0, career: true, story: null, teamCode: t.team, teamLabel: t.cn, trusted: !!d.meStarts };
   save();
   app.innerHTML = `
     <section class="story card pop">
@@ -651,9 +651,11 @@ showResult = function (r) {
   _showResult(r);
   if (!run.career) return;
   const me = run.team.find((p) => p.isMe);
-  // 成长：每打完一场（输赢都算）得 7 个能力点，自己加到任意能力上（单项上限 100）；不再自动成长、不再升级三选一 +3
+  // 成长：每打完一场（输赢都算）得 7 个能力点，自己加到任意能力上（单项上限 99）；不再自动成长、不再升级三选一 +3
+  // 11 项都满 99 就不再给能力点，手里剩的也清掉（11-28 用户：「各项数据加满99后就不再重复加点」）
   migratePoints();
-  run.addPts = (run.addPts || 0) + C.POINTS_PER_GAME;
+  const maxed = !!(C.allMaxed && C.allMaxed(me));
+  run.addPts = maxed ? 0 : (run.addPts || 0) + C.POINTS_PER_GAME;
   const row = r.box[0].find((x) => x.name === me.name);
   // 个人数据统计：场次、累计、单场最高
   const st = run.stats || (run.stats = { g: 0, min: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, hi: { pts: 0, reb: 0, ast: 0 } });
@@ -712,7 +714,7 @@ showResult = function (r) {
         <b>${esc(mvp.me ? me.name : mvp.name)}</b><small>${esc(r.labels[mvp.side])}</small>
         <span class="num">${lineText(mvp)}</span></div>
     </div>` : ''}
-    <div class="spread"><b>${esc(me.name)}${buffTags(me)}</b><span class="num" style="color:var(--gold);white-space:nowrap">+${C.POINTS_PER_GAME} 能力点</span></div>
+    <div class="spread"><b>${esc(me.name)}${buffTags(me)}</b><span class="num" style="color:var(--gold);white-space:nowrap">${maxed ? '能力已满 99' : `+${C.POINTS_PER_GAME} 能力点`}</span></div>
     ${row && row.min ? `<div class="my-hero">
       ${[['pts', '得分'], ['reb', '篮板'], ['ast', '助攻'], ['stl', '抢断'], ['blk', '盖帽']].map(([k, l]) => `<div class="${row[k] >= 10 ? 'hot' : ''}"><b class="num">${row[k]}</b><span>${l}</span></div>`).join('')}
       ${tags.length ? `<p class="my-tags">${tags.map((t) => `<i>${t}</i>`).join('')}</p>` : ''}
@@ -773,10 +775,10 @@ const shuffleArr = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) {
 // 2026-11-19 起替补不看位置：他加进来排好首发后，替补里总评最低的人被换下（E.replaceTarget）。被换下的人变成幸运值
 function bringIn(p) {
   // 开局选的明星不再是核心，也可以被换下（你自己永远不会被换）；队里已有同一个人的弱版本 → 换下那个版本（升级，E.signTarget）
-  const out = E.signTarget(run.team, p, coreNames());
+  const out = E.signTarget(run.team, p, coreNames(), bondTeamOf);
   if (!out) { toast('没有能换下的人'); return null; }
   run.team[out.i] = { ...p };
-  run.team = E.arrange(run.team, coreNames());
+  run.team = E.arrange(run.team, coreNames(), bondTeamOf);
   return { out: out.x, luck: luckText(addLuck(luckFor(out.x))) };
 }
 // ---------- 幸运宝箱：宝箱 = 10 名 85-95 球员自选 1 名；超级明星宝箱 = 10 名 95+ 球员自选 1 名 ----------
@@ -824,12 +826,12 @@ function chestStage(stage) {
 // 宝箱推荐：先看签下后首发 5 人总评加起来涨多少（位置缺口优先：中锋只有 80，文班就比乔丹更值），
 // 一样再看整队涨多少（他和被换下的人差多少），再一样就看总评。会把你自己挤下首发的人不算首发提升
 function chestGain(p) {
-  const out = E.signTarget(run.team, p, coreNames()); // 同一个人的更强版本：换下旧版本（升级）
+  const out = E.signTarget(run.team, p, coreNames(), bondTeamOf); // 同一个人的更强版本：换下旧版本（升级）
   if (!out) return null;
-  const now = E.arrange(run.team, coreNames());
+  const now = E.arrange(run.team, coreNames(), bondTeamOf);
   const next = [...run.team];
   next[out.i] = { ...p };
-  const after = E.arrange(next, coreNames());
+  const after = E.arrange(next, coreNames(), bondTeamOf);
   const sum = (t) => t.slice(0, 5).reduce((s, x) => s + x.ovr, 0);
   const benchMe = now.slice(0, 5).some((x) => x.isMe) && !after.slice(0, 5).some((x) => x.isMe);
   // 羁绊变化也算进首发提升：羁绊里每个人加的能力值加起来（比如凑成 3 人羁绊 = 3 × 3 = +9）
@@ -868,7 +870,7 @@ function recText(p, x) {
 }
 // 宝箱页下面的「我的阵容」：按位置一行，金框是首发；选中某人后，被换下的划掉、新来的标绿
 function chestRoster(inP, g) {
-  const base = E.arrange(run.team, coreNames());
+  const base = E.arrange(run.team, coreNames(), bondTeamOf);
   const bond = bondOf(base);
   const team = withBond(base); // 羁绊里的人显示加成后的总评
   const starters = new Set(team.slice(0, 5));
@@ -1192,7 +1194,7 @@ function medalStage(stage) {
         <p class="eyebrow">获得被动</p>
         <h3>${PASSIVE_ICON[k] || '🏅'} ${p.rare ? '★ ' : ''}${esc(p.name)}</h3>
         <p class="small">${esc(p.desc)}</p>
-        <p class="small muted">${p.rare ? `传奇被动：每场 ${Math.round(p.rate * 100)}% 概率触发${C.LEGEND_PITY ? `（连着没触发，每场再 +${Math.round(C.LEGEND_PITY * 100)}%）` : ''}，可以和其他传奇被动叠加` : `能力加成直接生效，总评 ${before} → ${me.ovr}`}</p>
+        <p class="small muted">${p.rare ? `传奇被动：每场 ${Math.round(p.rate * 100)}% 概率触发${C.LEGEND_PITY ? `（连着没触发，每场再 +${Math.round(C.LEGEND_PITY * 100)}%）` : ''}，可以和其他传奇被动叠加` : `${Object.entries(p.attr || {}).map(([k, v]) => `${k} ${me.attrs[k]}（+${(me.bonus && me.bonus[k]) || v}）`).join('、')} · 加成只影响比赛数据，不改总评（${me.ovr}）`}</p>
       </section>
       ${run.passivePending ? `<button class="btn btn-gold" id="again">🏅 再解锁一次（剩 ${run.passivePending} 次）</button>` : ''}
       ${run.draws ? `<button class="btn btn-gold" id="toCards">🃏 去 10 连抽（剩 ${run.draws} 次）</button>` : ''}
@@ -1217,7 +1219,7 @@ function migratePoints() {
 }
 // 原来的经验条改成能力点：每打完一场 +7，自己分配
 function xpBar() {
-  return `<div class="xp pts-line"><span>🎯 能力点 <b class="num">${run.addPts || 0}</b></span><span class="small muted">每打完一场 +${C.POINTS_PER_GAME} 点，任意加到各项能力，单项上限 100</span></div>`;
+  return `<div class="xp pts-line"><span>🎯 能力点 <b class="num">${run.addPts || 0}</b></span><span class="small muted">${C.allMaxed && C.allMaxed(run.team.find((p) => p.isMe)) ? '11 项能力都满 99 了，不再加点' : `每打完一场 +${C.POINTS_PER_GAME} 点，任意加到各项能力，单项上限 ${C.ATTR_MAX || 99}`}</span></div>`;
 }
 // 加点：11 项能力自由分配，点 ＋ / − 调整，实时看总评和预计场均；可以只加一部分，剩下的存着下次加
 // 底部导航里的「加点」页（pointsPage）和以前的弹窗（levelUp）共用 allocPanel
@@ -1242,7 +1244,7 @@ function allocPanel(host, opts = {}) {
   const me = run.team.find((p) => p.isMe);
   const plan = {};
   const used = () => Object.values(plan).reduce((s, v) => s + v, 0);
-  const cap = (k) => C.attrCap(me, k); // 100 + 勋章加成
+  const cap = (k) => C.attrCap(me, k); // 99（勋章加成另算，不占上限）
   const ov = host;
   const preview = () => { const p = { ...me, attrs: { ...me.attrs } }; return C.addPoints(p, plan); };
   const render = () => {
@@ -1250,11 +1252,11 @@ function allocPanel(host, opts = {}) {
     const pv = preview();
     ov.innerHTML = `<div class="lu-card alloc${opts.page ? ' page' : ''}">${opts.page ? '' : '<p class="eyebrow">加 点</p>'}
       <h3>${esc(me.name)} 总评 ${me.ovr}${pv.ovr !== me.ovr ? ` → <em class="num up">${pv.ovr}</em>` : ''}</h3>
-      <p class="small">${run.addPts ? `剩余 <b class="num al-left">${left}</b> 点` : '<span class="muted">能力点用完了，打完下一场再来</span>'} · 单项上限 100${Object.keys(me.bonus || {}).length ? '（勋章加成另算）' : ''}</p>
+      <p class="small">${run.addPts ? `剩余 <b class="num al-left">${left}</b> 点` : C.allMaxed && C.allMaxed(me) ? '<span class="muted">11 项都满 99 了，不用再加点</span>' : '<span class="muted">能力点用完了，打完下一场再来</span>'} · 单项上限 ${C.ATTR_MAX || 99}${Object.keys(me.bonus || {}).length ? '（勋章 +2 另算，只影响比赛数据）' : ''}</p>
       <div class="al-list">${C.ATTRS.map((k) => {
         const add = plan[k] || 0, v = me.attrs[k] + add, full = v >= cap(k);
         return `<div class="al-row${add ? ' on' : ''}"><span class="al-k">${k}<small>${C.ATTR_STAT[k] || ''}</small></span>
-          <span class="al-v num">${v}${add ? `<i>+${add}</i>` : ''}${full ? '<small>满</small>' : ''}</span>
+          <span class="al-v num">${v}${add ? `<i>+${add}</i>` : ''}${me.bonus && me.bonus[k] ? `<b class="al-bonus">（+${me.bonus[k]}）</b>` : ''}${full ? '<small>满</small>' : ''}</span>
           <button class="al-b" data-k="${k}" data-d="-1" ${add ? '' : 'disabled'} aria-label="${k} 减 1">−</button>
           <button class="al-b" data-k="${k}" data-d="1" ${left > 0 && !full ? '' : 'disabled'} aria-label="${k} 加 1">＋</button></div>`;
       }).join('')}</div>
@@ -1511,7 +1513,7 @@ myTeam = function () {
     <div class="spread"><h3>替补</h3><span class="muted small num">均分 ${fmt1(benchAvg(team))}</span></div>
     <div class="mgrid">${team.slice(5).map((p, k) => card(p, k + 5)).join('')}</div>
     <p class="note">${swapPick === null ? '点一名球员看详情；再点另一名，两人互换（首发↔替补）。' : `已选 ${esc(short(team[swapPick].name))}，再点一名球员和他互换；再点他自己取消。`}</p>
-    <button class="btn btn-ghost" id="arrange">一键排首发（每个位置用最强的人）</button>
+    <button class="btn btn-ghost" id="arrange">一键排首发（算上羁绊，挑最强的组合）</button>
     <h3>${swapPick === null ? '我的详情' : `${esc(short(team[focusI].name))} 的详情`}</h3>
     ${detailPanel(team[focusI])}`;
   bindSwap(myTeam);
@@ -2111,7 +2113,7 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .buffs{display:inline-flex;flex-wrap:wrap;gap:4px;margin:0 4px;vertical-align:middle}
 .buffs i{font-style:normal;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;color:#9fe3b5;background:rgba(72,199,116,.14);border:1px solid rgba(72,199,116,.45)}
 .buffs i.buff-ovr{color:#1A0E02;background:#9fe3b5}
-.attr .buff{font-style:normal;font-size:10px;font-weight:800;color:#9fe3b5;margin-left:3px}.attr.buffed{border-color:rgba(72,199,116,.45)}
+.attr .buff{font-style:normal;font-size:10px;font-weight:800;color:#9fe3b5;margin-left:1px}.al-bonus{font-size:11px;font-weight:800;color:#9fe3b5}.attr.buffed{border-color:rgba(72,199,116,.45)}
 .pas-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.pas-chip{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.25)}.pas-chip.rare{border-color:#FFD54A;color:#FFD54A}
 .re-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}.re-row .small-btn{margin:0;padding-left:4px;padding-right:4px}
 </style>`);
@@ -2146,6 +2148,18 @@ if (run && Array.isArray(run.team)) {
     Object.assign(me, C.projectLine(me));
     run.ovr0 = null; // 成长曲线按新的总评重新起算
   }
+}
+// 11-28：单项、总评上限 99，普通勋章 +2 不再算进能力值（只影响比赛数据，用户：「99（+2），只影响赛后数据」）。
+//   老存档的你：能力值扣掉勋章加成，超过 99 的削到 99，削掉的点数退回能力点；attrV 2 = 已经拆过，不再重复
+//   放在 13 项 → 11 项换算后面（更老的存档先换成 3分、2分……再拆）
+if (run && run.career && (run.attrV || 1) < 2 && C.splitBonus) {
+  const me = run.team && run.team.find((p) => p.isMe);
+  if (me && me.attrs) {
+    const refund = C.splitBonus(me);
+    if (refund && !C.allMaxed(me)) run.addPts = (run.addPts || 0) + refund;
+  }
+  run.attrV = 2;
+  save();
 }
 // 旧存档里的碎片换成幸运值（按段位：传奇 15、金 10、紫 8、蓝 6、银 5、铜 4）
 if (run && run.career && (run.frags || run.fragOffer)) {

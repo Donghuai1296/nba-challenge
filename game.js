@@ -53,9 +53,11 @@ if (run) {
     //   11-28 起魔术师、奥尼尔又是传奇勋章了（magic、diesel），换回传奇
     const LEGACY_LEGEND = { kobe: 'kobe', magic: 'magic', rodman: 'rodman', shaq: 'diesel', manu: 'manu' };
     const old = (run.passives || []).filter((k) => E.OLD_NORMAL[k] || k in LEGACY_LEGEND);
+    // 能力值里含不含勋章加成：11-28 以前的存档（attrV 不到 2）含，之后的不含
+    const inAttrs = (run.attrV || 1) < 2;
     if (me && old.length) {
       for (const k of old) if (E.OLD_NORMAL[k]) for (const [a, v] of Object.entries(E.OLD_NORMAL[k].attr)) {
-        me.attrs[a] -= v;
+        if (inAttrs) me.attrs[a] -= v;
         if (me.bonus && me.bonus[a]) { me.bonus[a] -= v; if (me.bonus[a] <= 0) delete me.bonus[a]; }
       }
       const next = run.passives.filter((k) => !old.includes(k) && (E.PASSIVES[k] || E.PASSIVES[E.RENAMED[k]])); // 改过名的先留着，下面统一换成新名字
@@ -65,6 +67,8 @@ if (run) {
         if (!to) continue;
         next.push(to);
         Career.applyPassive(me, to);
+        // 这么老的存档能力值里还含着勋章加成（11-28 以前的算法），这里照老算法也加进能力值，career-ui.js 的 attrV 迁移再统一拆出来
+        if (inAttrs) for (const [a, v] of Object.entries(E.PASSIVES[to].attr || {})) me.attrs[a] += v;
       }
       run.passives = next;
       me.ovr = Career.ovrFromAttrs(me.attrs, me.pos);
@@ -93,6 +97,7 @@ if (run) {
     }
     run.passiveOffer = keep;
   }
+  // 11-28：能力值和勋章加成拆开（attrV 2）的迁移在 career-ui.js 里，要等老存档的 13 项能力先换成 11 项
 }
 let best = store.get('nba-best-v3', 0);
 const save = () => store.set('nba-run', run);
@@ -209,7 +214,7 @@ function rosterHtml(team0, opts = {}) {
     <div class="spread"><h3>替补</h3><span class="muted small num">均分 ${fmt1(benchAvg(team))}</span></div>
     <div class="mgrid">${team.slice(5).map((p, i) => row(p, i + 5)).join('')}</div>
     ${opts.editable ? `${missingNote(team)}<p class="note">${swapPick === null ? '点一名球员，再点另一名，两人互换（首发↔替补）。' : `已选 ${esc(short(team[swapPick].name))}，再点一名球员和他互换。`}</p>
-      <button class="btn btn-ghost" id="arrange">一键排首发（每个位置用最强的人）</button>` : ''}`;
+      <button class="btn btn-ghost" id="arrange">一键排首发（算上羁绊，挑最强的组合）</button>` : ''}`;
 }
 // 排首发时固定首发的人：
 // 经典模式：核心球星；
@@ -225,7 +230,7 @@ function bindArrange(rerender) {
   if (!el) return;
   el.onclick = () => {
     const before = teamAvg(run.team);
-    run.team = E.arrange(run.team, coreNames());
+    run.team = E.arrange(run.team, coreNames(), bondTeamOf);
     swapPick = null;
     save();
     rerender();
@@ -677,7 +682,7 @@ function pickStar(selected = null) {
 async function drawSupport(again = false) {
   const core = run.team.find((p) => p.name === run.star) || run.team[0];
   const { starters, bench } = E.randomSupport(core);
-  run.team = E.arrange([core, ...starters, ...bench], run.star);
+  run.team = E.arrange([core, ...starters, ...bench], run.star, bondTeamOf);
   swapPick = null;
   save();
   await drawCards(starters, { title: again ? '重 抽 首 发' : '抽 取 首 发', sub: '1 名 90+、2 名 85+、1 名 80+，补齐其余 4 个位置（1/2）', done: '继续抽替补' });
@@ -788,7 +793,7 @@ function oneClickReplace() {
   const s = run.signing;
   const rest = s.cards.map((c, i) => ({ c, i })).filter(({ i }) => !s.signed.includes(i));
   const before = teamAvg(run.team);
-  const res = E.autoReplace(run.team, rest.map((x) => x.c), coreNames());
+  const res = E.autoReplace(run.team, rest.map((x) => x.c), coreNames(), bondTeamOf);
   run.team = res.team;
   let pts = 0;
   for (const sw of res.swaps) {

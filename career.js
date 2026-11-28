@@ -152,7 +152,10 @@
   // 你的总评最高 100（2026-11-19 用户要求「能力值有个上限，数据很牛但不要太超标」，以前是 105）
   //   单项能力：加点最高 100，对应那项的普通勋章再 +2（最高 102）；总评 100 ≈ 场均 40 分 10 板 10 助 3 断 3 帽
   //   羁绊另算：比赛里首发同队 3/4/5 人再各 +3/+4/+5，所以比赛里最高 105
-  const OVR_MAX = 100;
+  // 2026-11-28 用户：「玩家球员能力值上限99，所有单项能力最高设定为99，普通勋章为额外+2，99（+2），只影响赛后数据」
+  //   → 总评、单项都最高 99；普通勋章的 +2 单独记在 me.bonus，不加进能力值、不算总评（不影响球队实力），只在算你的比赛数据时加上（effAttrs）
+  const OVR_MAX = 99;
+  const ATTR_MAX = 99;
   function ovrFromAttrs(a, pos) {
     const w = WEIGHTS[pos];
     let s = 0, t = 0;
@@ -181,7 +184,7 @@
     const attrs = Object.fromEntries(ATTRS.map((k) => {
       const l = locked[k];
       if (l.hidden) return [k, l.v]; // 隐藏能力直接锁定
-      return [k, Math.max(rookieFloor(pos, k), Math.min(100, l.v) - ROOKIE)];
+      return [k, Math.max(rookieFloor(pos, k), Math.min(ATTR_MAX, l.v) - ROOKIE)];
     }));
     return { attrs, ovr: ovrFromAttrs(attrs, pos) };
   }
@@ -337,8 +340,13 @@
   // ================= 你的数据：总评决定场均（总评 80 ≈ 10 分 3 板 3 助） =================
   // 每项数据由对应的能力决定：得分 ← 2分、3分（命中率 ← 终结）；篮板 ← 篮板、力量；助攻 ← 传球；
   // 抢断 ← 运动、外防；盖帽 ← 弹跳、内防；失误 ← 控球
+  // 算比赛数据用的能力值：能力值 + 普通勋章加成（勋章只影响比赛数据）
+  function effAttrs(me) {
+    const b = me.bonus || {};
+    return Object.fromEntries(Object.entries(me.attrs || {}).map(([k, v]) => [k, v + (b[k] || 0)]));
+  }
   function projectLine(me) {
-    const a = me.attrs;
+    const a = effAttrs(me);
     const o = me.ovr;
     const shoot = 0.4 * a['2分'] + 0.35 * a['3分'] + 0.25 * a.终结;
     const rebA = 0.7 * a.篮板 + 0.3 * a.力量;
@@ -468,8 +476,22 @@
     if (!row) return 0;
     return r0(row.pts + row.reb * 1.2 + row.ast * 1.5 + row.stl * 3 + row.blk * 3 + (win ? 15 : 4));
   }
-  // 单项上限：99 + 普通被动给的额外加成（所以能超过 99）
-  const attrCap = (me, k) => 100 + ((me.bonus && me.bonus[k]) || 0);
+  // 单项上限 99（11-28 起勋章加成不算在能力值里，所以上限不再跟着勋章涨）
+  const attrCap = () => ATTR_MAX;
+  const allMaxed = (me) => !!me && ATTRS.every((k) => me.attrs[k] >= ATTR_MAX); // 11 项都 99：不再给能力点
+  // 老存档（11-28 以前）：能力值里含着勋章加成、单项最高 100。拆开：能力值扣掉勋章加成，超过 99 的削到 99，返回削掉的点数（退回能力点）
+  function splitBonus(me) {
+    const b = me.bonus || {};
+    let refund = 0;
+    for (const k of ATTRS) {
+      const base = me.attrs[k] - (b[k] || 0);
+      refund += Math.max(0, base - ATTR_MAX);
+      me.attrs[k] = Math.min(ATTR_MAX, base);
+    }
+    me.ovr = ovrFromAttrs(me.attrs, me.pos);
+    Object.assign(me, projectLine(me));
+    return refund;
+  }
   function upgradeChoices(me, rand = Math.random) {
     const w = WEIGHTS[me.pos];
     const room = (k) => attrCap(me, k) - me.attrs[k];
@@ -483,7 +505,7 @@
     return me;
   }
 
-  // ================= 加点：每打完一场比赛（输赢都算）得 7 点，自己分配到任意能力，单项上限 100（勋章加成另算） =================
+  // ================= 加点：每打完一场比赛（输赢都算）得 7 点，自己分配到任意能力，单项上限 99（勋章加成另算，只影响比赛数据） =================
   // 用户 2026-11-15 定的规则，取代了以前「赢球按成长曲线自动长」和「升级三选一 +3」
   const POINTS_PER_GAME = 7;
   // 每项能力影响哪项比赛数据（加点页上的提示）
@@ -573,17 +595,17 @@
     }
     return offer;
   }
-  // 选中后：能力型被动直接加到你身上，是额外加成（不受 99 限制，记在 me.bonus 里）
+  // 选中后：普通勋章的加成记在 me.bonus（11-28 起不加进能力值、不改总评，只在算比赛数据时加上，见 effAttrs）
   function applyPassive(me, key) {
     const p = E.PASSIVES[key];
     me.bonus = me.bonus || {};
-    for (const [k, v] of Object.entries(p.attr || {})) { me.bonus[k] = (me.bonus[k] || 0) + v; me.attrs[k] += v; }
+    for (const [k, v] of Object.entries(p.attr || {})) me.bonus[k] = (me.bonus[k] || 0) + v; // 只记加成，不加进能力值（11-28）
     me.ovr = ovrFromAttrs(me.attrs, me.pos);
     Object.assign(me, projectLine(me));
     return me;
   }
 
-  const api = { PICK_STARS, makeRookie, rookieFloor, OVR_OFFSET, SIGNATURE, GROW_POINTS, growTarget, growTo, attrCap, POINTS_PER_GAME, ATTR_STAT, addPoints, suggestPoints,PASSIVE_EVERY, PASSIVE_DRAWS, LEGEND_PASSIVE_RATE, LEGEND_GUARANTEE_AT, LEGEND_PITY, drawPassive, drawOffer, applyPassive, OVR_MAX, SUPERSTARS, HIDDEN, QUIZ, hiddenFromAnswers, PLAY_STYLES, playStyle, ATTRS, grade, gradeClass, attrsOf, ovrFromAttrs, decay, ROOKIE, TEAM_CN, CITY, LEAGUE, buildTeams, teamOfStar, joinRoster, drawMates, cardRank, rosterOf, projectLine, simulateSeason, XP_PER_LEVEL, gameXP, upgradeChoices, applyUpgrade, WEIGHTS };
+  const api = { PICK_STARS, makeRookie, rookieFloor, OVR_OFFSET, SIGNATURE, GROW_POINTS, growTarget, growTo, attrCap, POINTS_PER_GAME, ATTR_STAT, addPoints, suggestPoints,ATTR_MAX, allMaxed, splitBonus, effAttrs, PASSIVE_EVERY, PASSIVE_DRAWS, LEGEND_PASSIVE_RATE, LEGEND_GUARANTEE_AT, LEGEND_PITY, drawPassive, drawOffer, applyPassive, OVR_MAX, SUPERSTARS, HIDDEN, QUIZ, hiddenFromAnswers, PLAY_STYLES, playStyle, ATTRS, grade, gradeClass, attrsOf, ovrFromAttrs, decay, ROOKIE, TEAM_CN, CITY, LEAGUE, buildTeams, teamOfStar, joinRoster, drawMates, cardRank, rosterOf, projectLine, simulateSeason, XP_PER_LEVEL, gameXP, upgradeChoices, applyUpgrade, WEIGHTS };
   if (IS_NODE) module.exports = api;
   else root.Career = api;
 })(typeof window !== 'undefined' ? window : globalThis);
