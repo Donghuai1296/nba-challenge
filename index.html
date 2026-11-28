@@ -213,7 +213,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gacha h2 { text-align: center; font-size: 20px; letter-spacing: 0.12em; }
 .gacha .sub { text-align: center; color: var(--muted); font-size: 13px; }
 .gacha canvas { position: absolute; top:0;right:0;bottom:0;left:0; width: 100%; height: 100%; pointer-events: none; }
-.gacha .flash { position: absolute; top:0;right:0;bottom:0;left:0; background: #fff; opacity: 0; pointer-events: none; }
+/* 95+ 翻开：闪一下金光（11-28 起只有 95+ 有特效，金卡、紫卡、蓝卡的粒子和震屏都去掉了） */
+.gacha .flash { position: absolute; top:0;right:0;bottom:0;left:0; background: radial-gradient(circle at 50% 45%, rgba(255, 226, 140, .9), rgba(255, 186, 66, .35) 45%, rgba(255, 186, 66, 0) 75%); opacity: 0; pointer-events: none; }
+/* 95+ 的简易闪光（替换以前的全屏出场动画，game.js 的 walkout）：整屏金光闪 0.45 秒，不挡操作 */
+.fx-flash { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 500; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255, 226, 140, .85), rgba(255, 186, 66, .3) 45%, rgba(255, 186, 66, 0) 75%); opacity: 0; will-change: opacity; animation: fxFlash .45s ease-out forwards; }
+@keyframes fxFlash { 25% { opacity: 1; } 100% { opacity: 0; } }
 .gacha .flash.on { animation: flash 0.45s ease-out; }
 @keyframes flash { 0% { opacity: 0.75; } 100% { opacity: 0; } }
 .gacha .actions { display: grid; gap: 10px; max-width: 480px; width: 100%; margin: 0 auto; position: relative; z-index: 2; }
@@ -254,7 +258,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .gcard .nm { font-weight: 800; font-size: 15px; line-height: 1.25; }
 .gcard .st { font-size: 11px; color: var(--muted); font-family: var(--num); margin-top: 3px; }
 .gcard.r-legend .front { background: linear-gradient(160deg, #3B2A08, #121A2C 65%); }
-.gcard.r-legend .front::before { content: ""; position: absolute; top:-50%;right:-50%;bottom:-50%;left:-50%; background: conic-gradient(from 0deg, #FF5F6D, #FFC371, #F9F871, #5EF2A0, #5BC0FF, #B07CFF, #FF5F6D); opacity: 0.22; animation: spin 4s linear infinite; }
+.gcard.r-legend .front::before { content: ""; position: absolute; top:-50%;right:-50%;bottom:-50%;left:-50%; background: conic-gradient(from 0deg, #FF5F6D, #FFC371, #F9F871, #5EF2A0, #5BC0FF, #B07CFF, #FF5F6D); opacity: 0.22; } /* 以前一直转（4 秒一圈），11-28 起静止，只在翻开时闪一下 */
 .gcard.r-legend .front > * { position: relative; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .gcard.flipped.hi { animation: bounce 0.5s ease-out 0.55s; }

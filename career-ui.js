@@ -436,11 +436,12 @@ function pickStarCareer(selected = null) {
   app.querySelectorAll('.tcard[data-name]').forEach((el) => (el.onclick = () => pickStarCareer(el.dataset.name)));
   document.getElementById('ok').onclick = () => go(lookPage, s, () => joinTeam(s));
 }
-// 抽卡组首发：明星固定，其余 4 个位置各翻 1 张卡；95+ 传奇卡闪金光 1 秒，90+ 金卡闪 0.5 秒
+// 抽卡组首发：明星固定，其余 4 个位置各翻 1 张卡；95+ 传奇卡闪金光 1 秒（11-28 起 90+ 金卡不再闪）
 const RANK_BADGE = { legend: '传奇卡', gold: '金卡' };
 function rankCard(p, rank, fresh) {
   const html = tallCard(p, { badge: RANK_BADGE[rank] });
-  return rank === 'normal' ? html : html.replace('class="tcard', `class="tcard rank-${rank}${fresh ? ` flash-${rank}` : ''}`);
+  // 11-28：金卡（90-94）不再闪光，只有传奇卡（95+）刚翻开时闪一下
+  return rank === 'normal' ? html : html.replace('class="tcard', `class="tcard rank-${rank}${fresh && rank === 'legend' ? ' flash-legend' : ''}`);
 }
 // 传奇卡出场动画：和 10 连抽、选秀用同一个（game.js 的 walkout：位置 → 号码 → 球队 → 名字，2 秒，点屏幕跳过）
 function legendWalkout(p, done) {
@@ -681,6 +682,11 @@ showResult = function (r) {
     if (!st.best || gameScore(row) > st.best.gs) {
       st.best = { gs: gameScore(row), pts: row.pts, reb: row.reb, ast: row.ast, stl: row.stl, blk: row.blk, min: row.min, level: lvIdx + 1, opp: `${L.year} ${E.nick(L.team)}`, win: r.win, final: r.final };
     }
+    // 高光比赛：综合表现最好的 5 场，通关结算页挑前 3 场（11-28 用户：「把打的最好的几场比赛数据 highlight」）
+    const game = { gs: gameScore(row), pts: row.pts, reb: row.reb, ast: row.ast, stl: row.stl, blk: row.blk, min: row.min, level: lvIdx + 1, opp: `${L.year} ${E.nick(L.team)}`,
+      boss: L.boss ? L.boss.glyph : '', win: r.win, final: r.final, tags: tags.filter((t) => !t.includes('生涯新高')),
+      legend: (r.triggers || []).filter((k) => E.PASSIVES[k]).map((k) => E.PASSIVES[k].name) };
+    st.top = [...(st.top || []), game].sort((a, b) => b.gs - a.gs).slice(0, 5);
   }
   if (row && row.min) {
     st.g++;
@@ -786,7 +792,8 @@ function bringIn(p) {
 //   阵中已有的人（不同译名也算）：只出比队里那张更强的版本（选了就升级，2026-11-26 用户定「同一人只留一张，可升级」）
 const CHEST = {
   normal: { name: '宝箱', icon: '🎁', lo: 85, hi: 95, desc: '10 名 85-95 球员，自选 1 名' },
-  super: { name: '超级明星宝箱', icon: '👑', lo: 95, hi: 999, desc: '10 名 95+ 球员，自选 1 名' },
+  // 11-28 用户：「超级明星宝箱改成随机一个 95+ 球星」（以前 10 名自选 1 名）——开箱翻开一张，直接签下
+  super: { name: '超级明星宝箱', icon: '👑', lo: 95, hi: 999, desc: '随机一名 95+ 球星', random: true },
 };
 function chestPool(kind) {
   const c = CHEST[kind];
@@ -815,10 +822,11 @@ function chestStage(stage) {
   stage.querySelectorAll('[data-chest]').forEach((b) => (b.onclick = () => {
     if (drawing) return;
     const k = b.dataset.chest;
-    const players = chestPool(k).sort((a, b) => b.ovr - a.ovr); // 总评从高到低
-    if (!players.length) { toast('这个档次的球员你都有了'); return; }
+    const pool = chestPool(k).sort((a, b) => b.ovr - a.ovr); // 总评从高到低
+    if (!pool.length) { toast('这个档次的球员你都有了'); return; }
+    const players = CHEST[k].random ? [pool[Math.floor(Math.random() * pool.length)]] : pool; // 超级明星宝箱：随机 1 人
     run.chests[k]--;
-    run.chestOffer = { kind: k, players, revealed: false };
+    run.chestOffer = { kind: k, players, revealed: false, random: !!CHEST[k].random };
     save();
     chestOpen(stage);
   }));
@@ -896,6 +904,21 @@ function chestOpen(stage, sel = null) {
   const o = run.chestOffer, c = CHEST[o.kind];
   const tab = document.getElementById('dcFrag');
   if (tab) tab.textContent = `宝箱 ×${chestReady()}`;
+  // 超级明星宝箱（随机 1 人）：翻开就是他，点「签下」直接进队（95+ 翻开时闪一下金光）
+  if (o.random && o.players.length === 1) {
+    const p = o.players[0];
+    drawing = true;
+    stage.innerHTML = '';
+    drawCards([p], { host: stage, title: `${c.icon} ${c.name}`, sub: c.desc, done: `签下 ${short(p.name)}` }).then(() => {
+      drawing = false;
+      const r = bringIn(p);
+      run.chestOffer = null;
+      save();
+      if (r) toast(`签下 ${short(p.name)}，换下 ${short(r.out.name)}${r.luck ? `；${r.luck}` : ''}`);
+      drawCenter('frag');
+    });
+    return;
+  }
   if (!o.revealed) {
     drawing = true;
     stage.innerHTML = '';
@@ -1085,7 +1108,7 @@ function cardStage(stage) {
     return;
   }
   stage.innerHTML = `${result}<section class="dc-intro">${pack(false)}
-    <p class="small muted">冠军球队夺冠赛季的球员 · 90+ 5% · 80+ 30%<br>抽完一键签约：比队里最弱的替补强就换上（不看位置）；重复抽到的球星转幸运值，其他没签的卡作废</p>
+    <p class="small muted">冠军球队夺冠赛季的球员<br>抽完一键签约：比队里最弱的替补强就换上（不看位置）；重复抽到的球星转幸运值，其他没签的卡作废</p>
     <button class="btn btn-gold" id="pull">🃏 开始 10 连抽（剩 ${run.draws} 次）</button></section>`;
   document.getElementById('pull').onclick = async (e) => {
     if (drawing || !run.draws) return;
@@ -1123,12 +1146,11 @@ function medalStage(stage) {
   }
   const got = run.passiveOffer;
   if (!got.length) { run.passiveOffer = null; run.passivePending = 0; save(); stage.innerHTML = '<p class="muted" style="text-align:center">被动技能已经全部集齐</p>'; return; }
-  const rate = Math.round(C.LEGEND_PASSIVE_RATE * 100);
   const real = (k) => (E.PASSIVES[k].rare ? 'legend' : 'normal');
   let phase = 'locked', sel = null;
   stage.innerHTML = `<section class="medal-page" id="mp">
     <h2 id="mpTitle">被动技能勋章</h2>
-    <p class="muted small" id="mpSub">${got.length} 枚勋章，解锁后三选一 · 每枚普通 ${100 - rate}% / 传奇 ${rate}%${C.LEGEND_GUARANTEE_AT && C.LEGEND_GUARANTEE_AT.length ? ` · 打赢第 ${C.LEGEND_GUARANTEE_AT.join('、')} 关的 Boss 必出 1 枚传奇` : ''}</p>
+    <p class="muted small" id="mpSub">${got.length} 枚勋章，解锁后三选一${C.LEGEND_GUARANTEE_AT && C.LEGEND_GUARANTEE_AT.length ? ` · 打赢第 ${C.LEGEND_GUARANTEE_AT.join('、')} 关的 Boss 必出 1 枚传奇` : ''}</p>
     <div class="medals" id="medals" style="--n:${got.length}">${got.map((k, i) => medalItem(k, i, 'locked')).join('')}</div>
     <div id="mpAct" class="mp-act"><button class="btn btn-gold" id="unlock">🔓 一键解锁</button></div>
   </section>`;
@@ -1355,7 +1377,7 @@ hub = function () {
       <div class="spread"><span>你的实力 <b class="num">${fmt1(mine)}</b></span><span class="muted small">阵容 ${fmt1(teamAvg(run.team))} + 默契 ${fmt1(E.chemistry(run.wins))}${bd.bonus ? ` + 羁绊 ${fmt1(bondPowerOf(run.team))}` : ''}</span></div>
       <div class="meter">
         <div class="bar"><div class="me" style="width:${(mine / total) * 100}%"></div><div class="them" style="width:${(L.power / total) * 100}%"></div></div>
-        <div class="spread small"><span style="color:var(--accent)">你</span><span>预计胜率 <b class="num">${Math.round(pWin * 100)}%</b></span><span class="muted">${esc(short(L.team))}</span></div>
+        <div class="spread small"><span style="color:var(--accent)">你</span><span>预计胜率 <b class="num">${L.boss ? '？' : `${Math.round(pWin * 100)}%`}</b></span><span class="muted">${esc(short(L.team))}</span></div>
       </div>
       <button class="btn btn-primary sticky-cta" id="play">开始比赛</button>
     </section>
@@ -1553,9 +1575,79 @@ function setNav(active) {
   }));
 }
 
+// ---------- 30 关全通：结算页（11-28 用户：「挑战 30 关胜利做个结算画面，把打的最好的几场比赛数据 highlight，
+//   30 关主角的场均数据，荣耀分享，做个转发的链接」） ----------
+// 转发链接：虎扑版走虎扑原生分享面板（微信、微博，GameHupu.share 带标题、描述、链接）；
+//   网站版有系统分享就用系统分享（手机浏览器），没有就把文案和链接一起复制
+function gameLink() {
+  return window.GameHupu ? location.href : location.origin + location.pathname;
+}
+async function shareGlory(title, text) {
+  if (window.GameHupu) { const r = await window.GameHupu.share(text, { title }); if (!r.ok) toast(r.msg); return; }
+  const url = gameLink();
+  if (navigator.share) { try { await navigator.share({ title, text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  copy(`${text}\n${url}`);
+}
+function victoryScreen() {
+  const me = run.team.find((p) => p.isMe) || { name: '我', pos: 'SF', ovr: 0 };
+  const st = run.stats || { g: 0 };
+  const avg = (k) => (st.g ? ((st[k] || 0) / st.g).toFixed(1) : '0.0');
+  const top = (st.top && st.top.length ? st.top : st.best ? [st.best] : []).slice(0, 3);
+  const legends = (run.passives || []).filter((k) => E.PASSIVES[k] && E.PASSIVES[k].rare);
+  const losses = Math.max(0, (st.g || 0) - (run.wins || 0));
+  const title = `我打穿了 ${TOTAL} 支总冠军王朝！`;
+  const text = `${me.name} 和${short(run.star)}搭档，${TOTAL} 关全通，五大 Boss「魔神皇佛鲨」全部终结。` +
+    `${TOTAL} 关场均 ${avg('pts')} 分 ${avg('reb')} 板 ${avg('ast')} 助` +
+    (top[0] ? `，最佳一场 ${top[0].pts} 分 ${top[0].reb} 板 ${top[0].ast} 助` : '') + `，MVP ×${st.mvp || 0}。你能闯几关？`;
+  const ord = ['🥇', '🥈', '🥉'];
+  const gameCard = (g, i) => `<div class="vt-game">
+      <div class="vt-head"><span class="vt-rank">${ord[i] || ''}</span><b>第 ${g.level} 关 · ${g.boss ? `<i class="vt-boss">Boss ${esc(g.boss)}</i> ` : ''}vs ${esc(g.opp)}</b>
+        <small class="${g.win ? 'win' : 'lose'}">${g.win ? '胜' : '负'} ${g.final ? `${g.final[0]}:${g.final[1]}` : ''}</small></div>
+      <div class="vt-line">${[['pts', '分'], ['reb', '板'], ['ast', '助'], ['stl', '断'], ['blk', '帽']].map(([k, l]) => `<span class="${g[k] >= 10 ? 'hot' : ''}"><b class="num">${g[k]}</b>${l}</span>`).join('')}</div>
+      ${(g.tags && g.tags.length) || (g.legend && g.legend.length) ? `<div class="vt-tags">${[...(g.tags || []), ...(g.legend || []).map((n) => `★ ${n}`)].map((t) => `<i>${esc(t)}</i>`).join('')}</div>` : ''}
+    </div>`;
+  app.innerHTML = `
+    <section class="vic-hero pop">
+      <p class="eyebrow">🏆 ${TOTAL} 关全通</p>
+      <h1 class="vic-title">王朝终结者</h1>
+      <p class="vic-name">${esc(me.name)}<small>${E.POS_LABEL[me.pos] || ''} · 总评 ${me.ovr} · 搭档 ${esc(short(run.star))}</small></p>
+      <div class="vic-boss">${E.BOSSES.map((b) => `<span title="${esc(E.bossName(b))}">${esc(b.glyph)}</span>`).join('')}</div>
+      <p class="small muted" style="margin:0">五大 Boss 全部终结 · ${st.g || 0} 场 ${run.wins || 0} 胜 ${losses} 负</p>
+    </section>
+    <section class="card vic-avg">
+      <h3>${TOTAL} 关场均</h3>
+      <div class="cs-grid">
+        <div><b>${avg('pts')}</b><span>得分</span></div><div><b>${avg('reb')}</b><span>篮板</span></div><div><b>${avg('ast')}</b><span>助攻</span></div>
+        <div><b>${avg('stl')}</b><span>抢断</span></div><div><b>${avg('blk')}</b><span>盖帽</span></div><div><b>${avg('min')}</b><span>上场分钟</span></div>
+      </div>
+      ${careerShot(st) ? `<p class="small muted" style="margin:0">${careerShot(st)}</p>` : ''}
+    </section>
+    ${top.length ? `<section class="card vic-top"><h3>⭐ 高光时刻</h3>${top.map(gameCard).join('')}</section>` : ''}
+    <section class="card vic-honor">
+      <h3>荣誉</h3>
+      <div class="cs-honor">${[`🏅 MVP ×${st.mvp || 0}`, `🔥 三双 ×${st.td || 0}`, `💪 两双 ×${st.dd || 0}`, `💥 50+ ×${st.p50 || 0}`, `📈 单场最高 ${(st.hi && st.hi.pts) || 0} 分`].map((t) => `<i>${t}</i>`).join('')}</div>
+      ${legends.length ? `<div class="pas-row">${legends.map((k) => `<span class="pas-chip rare">${PASSIVE_ICON[k] || '🏅'} ${esc(E.PASSIVES[k].name)}</span>`).join('')}</div>` : ''}
+    </section>
+    <section class="card vic-share">
+      <h3>🔗 荣耀分享</h3>
+      <p class="small vic-text" id="vicText"></p>
+      <button class="btn btn-gold" id="share">${window.GameHupu ? '分享到微信 / 微博' : navigator.share ? '分享给球友' : '复制战绩和链接'}</button>
+      <p class="small muted" style="margin:0">${window.GameHupu ? '转发出去的是这个游戏的链接，球友点开就能来挑战' : '链接：<span id="vicLink"></span>'}</p>
+    </section>
+    <h3>最终阵容</h3>
+    ${lineupGrids(run.team)}
+    <button class="btn btn-primary" id="again">再来一局</button>`;
+  document.getElementById('vicText').textContent = text; // 文案里有你的名字，用 textContent 写
+  const lk = document.getElementById('vicLink');
+  if (lk) lk.textContent = gameLink();
+  document.getElementById('share').onclick = () => shareGlory(title, text);
+  document.getElementById('again').onclick = () => { run = null; store.del('nba-run'); go(home); };
+}
+
 // ---------- 打完（通关或止步）：生涯数据统计 ----------
 const _endScreen = endScreen;
 endScreen = function (won) {
+  if (won && run && run.career) return victoryScreen(); // 30 关全通：单独的结算页
   _endScreen(won);
   if (!run || !run.career) return;
   // 止步：淘汰你的那支队嘲讽一句（Boss 是专属台词）
@@ -1916,10 +2008,23 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .mvp-av{width:56px;height:56px;border-radius:50%;overflow:hidden;border:2px solid #FFD54A;background:#fff}
 .mvp-strip .eyebrow{margin:0;font-size:11px;letter-spacing:.15em;color:#FFD54A;font-weight:800}
 .mvp-strip b{font-size:16px;margin-right:6px}.mvp-strip small{color:#9aa4b8;font-size:12px}.mvp-strip span{display:block;font-size:13px;color:#fff;margin-top:2px}
-.career-sum .cs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
-.career-sum .cs-grid div{padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.05)}.career-sum .cs-grid b{display:block;font:900 24px/1.1 Bahnschrift,Arial,sans-serif;color:#ff8a4a}.career-sum .cs-grid span{font-size:11px;color:#9aa4b8}
+.career-sum .cs-grid,.vic-avg .cs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.career-sum .cs-grid div,.vic-avg .cs-grid div{padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.05)}.career-sum .cs-grid b,.vic-avg .cs-grid b{display:block;font:900 24px/1.1 Bahnschrift,Arial,sans-serif;color:#ff8a4a}.career-sum .cs-grid span,.vic-avg .cs-grid span{font-size:11px;color:#9aa4b8}
 .career-sum .cs-best{padding:10px 12px;border-radius:12px;background:linear-gradient(90deg,rgba(255,213,74,.2),rgba(255,213,74,.04));border-left:3px solid #FFD54A}
-.career-sum .cs-honor{display:flex;flex-wrap:wrap;gap:6px}.career-sum .cs-honor i{font-style:normal;font-size:12px;font-weight:800;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.08)}
+.career-sum .cs-honor,.vic-honor .cs-honor{display:flex;flex-wrap:wrap;gap:6px}.career-sum .cs-honor i,.vic-honor .cs-honor i{font-style:normal;font-size:12px;font-weight:800;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.08)}
+/* 30 关全通结算页（11-28） */
+.vic-hero{text-align:center;display:grid;gap:8px;justify-items:center;padding:22px 16px 18px;border-radius:18px;border:1px solid rgba(255,213,74,.45);background:radial-gradient(80% 70% at 50% 0%,rgba(255,213,74,.28),rgba(255,213,74,0) 70%),rgba(23,32,51,.8);box-shadow:0 0 0 1px rgba(255,213,74,.12),0 10px 40px rgba(242,140,40,.18)}
+.vic-hero .eyebrow{color:#FFD54A;letter-spacing:.3em;margin:0}
+.vic-title{margin:0;font-family:var(--display);font-size:44px;line-height:1.05;color:#fff;text-shadow:0 0 24px rgba(255,213,74,.55)}
+.vic-name{margin:0;font-family:var(--display);font-size:22px;color:#FFD54A;display:grid;gap:2px;word-break:break-all}.vic-name small{font-family:var(--body);font-size:12.5px;color:var(--muted)}
+.vic-boss{display:flex;gap:8px;justify-content:center}.vic-boss span{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-size:20px;color:#1A0E02;background:linear-gradient(180deg,#FFE08A,#F2A93B);box-shadow:0 0 12px rgba(255,213,74,.55)}
+.vic-avg h3,.vic-top h3,.vic-honor h3,.vic-share h3{margin:0}
+.vt-game{display:grid;gap:6px;padding:10px 12px;border-radius:12px;background:linear-gradient(90deg,rgba(255,213,74,.14),rgba(255,213,74,.02));border-left:3px solid #FFD54A}
+.vt-head{display:flex;align-items:center;gap:8px}.vt-head b{flex:1;min-width:0;font-size:13.5px}.vt-head small{font-weight:800}.vt-head small.win{color:var(--win)}.vt-head small.lose{color:var(--lose)}
+.vt-rank{font-size:18px}.vt-boss{font-style:normal;font-size:11px;padding:0 6px;border-radius:999px;background:#C62828;color:#fff;margin-right:2px}
+.vt-line{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}.vt-line b{font-size:22px;color:#fff;margin-right:2px}.vt-line .hot b{color:#FFD54A}
+.vt-tags{display:flex;flex-wrap:wrap;gap:5px}.vt-tags i{font-style:normal;font-size:11.5px;font-weight:800;padding:1px 8px;border-radius:999px;background:rgba(255,255,255,.08)}
+.vic-text{margin:0;line-height:1.7;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05)}
 .my-hero{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:12px 6px 10px;border-radius:14px;text-align:center;background:radial-gradient(circle at 50% 0%,rgba(255,138,74,.28),rgba(255,138,74,.05) 70%);border:1px solid rgba(255,138,74,.35)}
 .my-hero>div{display:grid;gap:2px}.my-hero b{font:900 30px/1 Bahnschrift,Arial,sans-serif;color:#fff}.my-hero span{font-size:11px;color:#9aa4b8;letter-spacing:.1em}
 .my-hero>div:first-child b{font-size:40px;color:#ff8a4a;text-shadow:0 0 18px rgba(255,138,74,.55)}.my-hero .hot b{color:#FFD54A}

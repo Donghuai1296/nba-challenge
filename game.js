@@ -472,33 +472,15 @@ function walkoutLine(p) {
 // 出场特效（美职篮全明星 / 2K 味道）：
 // ① 球队主色 LED 大屏，巨大球衣号码闪进来 → ② 巨大位置闪进来（JERSEY NUMBER / POSITION）→
 // ③ 号码和位置冲向屏幕散开，大屏暗下来，顶部留「号码 | 位置」和球队 → ④ 球员卡亮起，名字、总评。全程 2 秒，点屏幕继续
-function walkout(p0) {
-  const p = shownAs(p0); // 库里加入活塞后，出场特效仍然是勇士的颜色和 WARRIORS
+// 2026-11-28 用户：「95+ 特效做简易闪光」——全屏出场动画（号码 → 位置 → 球队 → 球员卡，2~3 秒）换成整屏闪一下金光（0.45 秒，
+//   不挡操作，一个空元素，不往页面写 HTML）。调用的地方（宝箱签下 95+、Boss 卡、随机明星、抽卡组首发的传奇卡）不用改
+function walkout() {
   walkQ = walkQ.then(() => new Promise((resolve) => {
-    const { kit, num } = Avatar.kitOf(p);
-    // 实在查不到号码：不显示「—」，号码那块直接不出，只闪位置
-    const n = num !== undefined && num !== null && num !== '' ? esc(num) : '';
-    const ov = document.createElement('div');
-    ov.className = 'walkout wo4';
-    ov.style.setProperty('--c1', kit.primary);
-    ov.innerHTML = `<div class="w4-led"></div><div class="w4-scan"></div><div class="w4-dark"></div>
-      ${n ? `<div class="w4-big w4-num"><small>JERSEY NUMBER</small><b>${n}</b></div>` : ''}
-      <div class="w4-big w4-pos"><small>POSITION</small><b>${esc(p.pos || '')}</b></div>
-      <div class="w4-top">${n ? `<span>${n}</span><i></i>` : ''}<span>${esc(p.pos || '')}</span></div>
-      <div class="w4-team">${esc(walkoutLine(p))}</div>
-      <div class="w4-card">${tallCard(p, { badge: '传奇' }).replace('class="tcard', 'class="tcard rank-legend')}</div>
-      <div class="w4-info"><b>${esc(p.name)}</b><small>${WO_POS[p.pos] || ''}</small><span>总评 ${esc(p.ovr)}</span></div>
-      <small class="w4-tap">点击屏幕继续</small>`;
-    document.body.appendChild(ov);
-    // 号码、位置闪进来后多停一会儿（约 1 秒）再散开亮球队；球员卡 1.8 秒亮起，
-    // 完全亮好（约 2.25 秒）后原地闪亮 0.2 秒，再看一会儿；3.2 秒自动结束，随时可以点屏幕关掉
-    const at = reduceMotion ? [0, 0, 0, 0, 0] : [60, 330, 1350, 1800, 2250];
-    const step = (k) => ov.classList.add(`s${k}`);
-    const timers = at.slice(0, window.__walkStopAt || at.length).map((t, i) => setTimeout(() => step(i + 1), t)); // __walkStopAt：测试截图停在第几步
-    let closed = false;
-    const close = () => { if (closed) return; closed = true; timers.forEach(clearTimeout); clearTimeout(end); ov.remove(); resolve(); };
-    const end = window.__holdWalkout ? 0 : setTimeout(close, reduceMotion ? 800 : 3200); // 3.2 秒自动结束，随时点屏幕关闭；__holdWalkout：测试截图用
-    ov.onclick = close;
+    if (reduceMotion) { resolve(); return; }
+    const fx = document.createElement('div');
+    fx.className = 'fx-flash';
+    document.body.appendChild(fx);
+    setTimeout(() => { fx.remove(); resolve(); }, 450);
   }));
   return walkQ;
 }
@@ -546,29 +528,21 @@ function drawCards(players, { title, sub = '', done = '收下', host = null, wal
       if (el.dataset.state) return;
       el.dataset.state = 'opening';
       const r = rarityOf(players[i]);
+      // 2026-11-28 用户：「去掉 90-95 的金卡特效，95+ 特效做简易闪光」：
+      //   以前 95+ 先放 2~3 秒全屏出场动画，金卡（90-94）白光 + 震屏 + 粒子，紫卡、蓝卡也有粒子；
+      //   现在只有 95+ 翻开时闪一下金光、卡片弹一下，其余卡直接翻开（粒子、震屏都去掉）
       if (!fast) {
-        // 卡越多，普通卡翻得越快；高稀有度蓄力久一点
-        const base = n > 4 && r.level < 2 ? 70 : 220;
-        el.style.setProperty('--charge', `${(base + r.level * 170) / 1000}s`);
+        const ms = r.level >= 4 ? 420 : n > 4 ? 70 : 220; // 95+ 多蓄力一会儿
+        el.style.setProperty('--charge', `${ms / 1000}s`);
         el.classList.add('charge');
-        await wait(base + r.level * 170);
+        await wait(ms);
       }
-      if (walk && players[i].ovr >= 95) await walkout(players[i]); // 95+ 先放出场特效，再翻牌（宝箱里不放，选中的人再放）
       el.classList.add('flipped');
-      if (r.level >= 2) el.classList.add('hi');
-      await wait(180);
-      const box = el.getBoundingClientRect();
-      const cv = canvas.getBoundingClientRect(); // 页面内抽卡时画布不在屏幕左上角，换算成画布坐标
-      const color = getComputedStyle(el).getPropertyValue('--rc').trim() || '#fff';
-      if (!reduceMotion && r.level >= 1) burst(canvas, box.left - cv.left + box.width / 2, box.top - cv.top + box.height / 2, color, 20 + r.level * 28);
-      if (!reduceMotion && r.level >= 3) {
-        flash.classList.remove('on');
-        void flash.offsetWidth;
-        flash.classList.add('on');
-        ov.classList.remove('shake');
-        void ov.offsetWidth;
-        ov.classList.add('shake');
+      if (r.level >= 4) {
+        el.classList.add('hi');
+        if (!reduceMotion) { flash.classList.remove('on'); void flash.offsetWidth; flash.classList.add('on'); }
       }
+      await wait(180);
       el.dataset.state = 'open';
       if (++opened === cards.length) finish();
     };
@@ -642,7 +616,7 @@ function home() {
         <li>再抽 4 名首发：1 名 90+、2 名 85+、1 名 80+，正好补齐其余 4 个位置；加 7 名替补，共 12 人。</li>
         <li>球队实力 = 首发均分 × 72% + 替补均分 × 28%；首发 5 个位置每缺一个 -${E.MISSING_POS_PENALTY}。</li>
         <li>${TOTAL} 关全是历届总冠军，不重复，越往后越强。</li>
-        <li>每通关一次，获得一次 10 连抽。卡池是 ${TOTAL} 支冠军队夺冠赛季的全部球员：90+ 概率 5%，80+ 概率 30%。</li>
+        <li>每通关一次，获得一次 10 连抽。卡池是 ${TOTAL} 支冠军队夺冠赛季的全部球员。</li>
         <li>抽完自动"一键替换"：同位置用高数值替换低数值，再按位置排好首发。剩下的卡也能手动签。</li>
         <li>一共 ${LIVES} 条命，输一场少一条，输光就结束。</li>
       </ol>
@@ -748,7 +722,7 @@ function hub() {
       <p class="small bond-line ${bondOf(run.team).bonus ? 'on' : ''}">${bondLine(bondOf(run.team))}</p>
       <div class="meter">
         <div class="bar"><div class="me" style="width:${(mine / total) * 100}%"></div><div class="them" style="width:${(L.power / total) * 100}%"></div></div>
-        <div class="spread small"><span style="color:var(--accent)">你</span><span>预计胜率 <b class="num">${Math.round(p * 100)}%</b></span><span class="muted">${esc(short(L.team))}</span></div>
+        <div class="spread small"><span style="color:var(--accent)">你</span><span>预计胜率 <b class="num">${L.boss ? '？' : `${Math.round(p * 100)}%`}</b></span><span class="muted">${esc(short(L.team))}</span></div>
       </div>
     </section>
     <button class="btn btn-primary" id="play">开始比赛</button>
@@ -783,7 +757,7 @@ async function tenDraw() {
   const cards = E.gacha(10);
   run.signing = { cards, signed: [], pick: null, swaps: [] };
   save();
-  await drawCards(cards, { title: '十 连 抽', sub: '冠军球队夺冠赛季球员 · 90+ 5% · 80+ 30%', done: '一键替换并签约' });
+  await drawCards(cards, { title: '十 连 抽', sub: '冠军球队夺冠赛季球员', done: '一键替换并签约' });
   finishSigning();
   go(run.career && window.drawCenter && (run.draws || run.passivePending || chestReady()) ? window.drawCenter : hub);
 }
