@@ -654,7 +654,13 @@ showResult = function (r) {
     for (const k of ['pts', 'reb', 'ast']) st.hi[k] = Math.max(st.hi[k], row[k]);
   }
   // 每打赢 3 关抽 3 个被动技能（11-19 起 Boss 改成第 6/12/18/24/30 关的五大 Boss，勋章还是每 3 关一次）
-  if (r.win && run.level % C.PASSIVE_EVERY === 0 && run.level < TOTAL) run.passivePending = (run.passivePending || 0) + 1;
+  if (r.win && run.level % C.PASSIVE_EVERY === 0 && run.level < TOTAL) {
+    run.passivePending = (run.passivePending || 0) + 1;
+    // 打赢第 6、12 关的 Boss：这次解锁的 3 枚里保底 1 枚传奇（抽的时候用，见 passivePick）
+    if (C.LEGEND_GUARANTEE_AT && C.LEGEND_GUARANTEE_AT.includes(run.level)) run.legendGuar = (run.legendGuar || 0) + 1;
+  }
+  // 传奇勋章保底：戴着传奇、这场一枚都没触发 → 下一场每枚 +2%；触发过就清零
+  if ((run.passives || []).some((k) => E.PASSIVES[k] && E.PASSIVES[k].rare)) run.legendMiss = r.triggers && r.triggers.length ? 0 : (run.legendMiss || 0) + 1;
   // 每赢一场：幸运值 +7（满 50 / 100 得宝箱）
   const luckWin = r.win ? addLuck(LUCK_WIN) : null;
   // 挑战失败（还有命）：补偿一次 10 连抽（11-26 用户要求；以前是进传奇选秀大会挑 1 人，和别的环节不协调）
@@ -896,10 +902,10 @@ function chestOpen(stage, sel = null) {
     drawCenter('frag');
   };
 }
-// ---------- 被动技能勋章：单独一页，3 枚勋章一键解锁，三选一（每枚普通 88%、传奇 12%） ----------
+// ---------- 被动技能勋章：单独一页，3 枚勋章一键解锁，三选一（每枚普通 70%、传奇 30%，见 career.js 的 LEGEND_PASSIVE_RATE） ----------
 const PASSIVE_ICON = {
-  tmac: '⏱️', jordan: '😈', kd: '💀', lebron: '👑', curry: '🎯',
-  klay: '💦', kobe: '🐍', manu: '🗡️', ai: '🔀', cp3: '🧠', pippen: '🛡️', mutombo: '⛰️', rodman: '🦖', shaq: '🦈', rose: '🌹', carter: '🚀',
+  tmac: '⏱️', jordan: '😈', lebron: '👑', magic: '🎩', diesel: '🦈',
+  klay: '💦', kobe: '🐍', manu: '🗡️', ai: '🔀', cp3: '🧠', pippen: '🛡️', mutombo: '⛰️', rodman: '🦖', shaq: '📮', rose: '🌹', carter: '🚀',
 };
 // 未解锁 = 暗色金属 + 问号；普通 = 银色齿边勋章 + 橙蓝绶带；传奇 = 金色星芒勋章 + 红金绶带
 const MEDAL_PAL = {
@@ -1015,7 +1021,7 @@ function medalBook() {
   const owned = new Set(run.passives || []);
   const keys = Object.keys(E.PASSIVES);
   const group = (title, list) => `<div class="mb-group"><div class="spread"><b>${title}</b><small class="muted mb-count">${list.filter((k) => owned.has(k)).length} / ${list.length}</small></div>
-    <div class="mb-list">${list.map((k) => { const p = E.PASSIVES[k]; return `<div class="mb-item ${owned.has(k) ? 'own' : ''} ${p.rare ? 'rare' : ''}" data-k="${esc(k)}"><span class="mb-ico">${PASSIVE_ICON[k] || '🏅'}</span><span><b>${esc(p.name)}</b><small>${esc(short(p.star))}</small></span><em>${esc(p.desc)}</em></div>`; }).join('')}</div></div>`;
+    <div class="mb-list">${list.map((k) => { const p = E.PASSIVES[k]; return `<div class="mb-item ${owned.has(k) ? 'own' : ''} ${p.rare ? 'rare' : ''}" data-k="${esc(k)}"><span class="mb-ico">${PASSIVE_ICON[k] || '🏅'}</span><span><b>${esc(p.name)}</b><small>${esc(short(p.star))}</small></span><em>${esc(p.desc)}${p.rare ? ` · 每场 ${Math.round(p.rate * 100)}%` : ''}</em></div>`; }).join('')}</div></div>`;
   return `<section class="card medal-book"><h3>勋章图鉴</h3>
     ${group('★ 传奇勋章', keys.filter((k) => E.PASSIVES[k].rare))}${group('普通勋章', keys.filter((k) => !E.PASSIVES[k].rare))}
     <p class="small muted">每打赢 ${C.PASSIVE_EVERY} 关解锁 ${C.PASSIVE_DRAWS} 枚，三选一（每枚传奇 ${Math.round(C.LEGEND_PASSIVE_RATE * 100)}%）</p></section>`;
@@ -1074,12 +1080,9 @@ function medalStage(stage) {
   }
   // 这次的 3 枚先存起来（中途刷新也不会重抽）；3 枚互不重复，也不和已有的重复
   if (!run.passiveOffer) {
-    const offer = [];
-    for (let i = 0; i < C.PASSIVE_DRAWS; i++) {
-      const k = C.drawPassive([...(run.passives || []), ...offer]);
-      if (k) offer.push(k);
-    }
-    run.passiveOffer = offer;
+    const guar = (run.legendGuar || 0) > 0; // 打赢第 6、12 关 Boss 后的那次：保底 1 枚传奇
+    run.passiveOffer = C.drawOffer ? C.drawOffer(run.passives || [], guar) : [];
+    if (guar) run.legendGuar--;
     save();
   }
   const got = run.passiveOffer;
@@ -1089,7 +1092,7 @@ function medalStage(stage) {
   let phase = 'locked', sel = null;
   stage.innerHTML = `<section class="medal-page" id="mp">
     <h2 id="mpTitle">被动技能勋章</h2>
-    <p class="muted small" id="mpSub">${got.length} 枚勋章，解锁后三选一 · 每枚普通 ${100 - rate}% / 传奇 ${rate}%</p>
+    <p class="muted small" id="mpSub">${got.length} 枚勋章，解锁后三选一 · 每枚普通 ${100 - rate}% / 传奇 ${rate}%${C.LEGEND_GUARANTEE_AT && C.LEGEND_GUARANTEE_AT.length ? ` · 打赢第 ${C.LEGEND_GUARANTEE_AT.join('、')} 关的 Boss 必出 1 枚传奇` : ''}</p>
     <div class="medals" id="medals" style="--n:${got.length}">${got.map((k, i) => medalItem(k, i, 'locked')).join('')}</div>
     <div id="mpAct" class="mp-act"><button class="btn btn-gold" id="unlock">🔓 一键解锁</button></div>
   </section>`;
@@ -1155,7 +1158,7 @@ function medalStage(stage) {
         <p class="eyebrow">获得被动</p>
         <h3>${PASSIVE_ICON[k] || '🏅'} ${p.rare ? '★ ' : ''}${esc(p.name)}</h3>
         <p class="small">${esc(p.desc)}</p>
-        <p class="small muted">${p.rare ? `传奇被动：每场 ${Math.round(p.rate * 100)}% 概率触发，可以和其他传奇被动叠加` : `能力加成直接生效，总评 ${before} → ${me.ovr}`}</p>
+        <p class="small muted">${p.rare ? `传奇被动：每场 ${Math.round(p.rate * 100)}% 概率触发${C.LEGEND_PITY ? `（连着没触发，每场再 +${Math.round(C.LEGEND_PITY * 100)}%）` : ''}，可以和其他传奇被动叠加` : `能力加成直接生效，总评 ${before} → ${me.ovr}`}</p>
       </section>
       ${run.passivePending ? `<button class="btn btn-gold" id="again">🏅 再解锁一次（剩 ${run.passivePending} 次）</button>` : ''}
       ${run.draws ? `<button class="btn btn-gold" id="toCards">🃏 去 10 连抽（剩 ${run.draws} 次）</button>` : ''}

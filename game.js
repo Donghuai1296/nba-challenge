@@ -49,15 +49,16 @@ if (run) {
   // medalV = 2 的存档已经是新勋章（新开局会写上），不再迁移
   if (run.career && (run.medalV || 1) < 2 && window.Career) {
     const me = run.team && run.team.find((p) => p.isMe);
-    // 老存档里 11-18 删掉的传奇勋章（科比、魔术师、罗德曼、奥尼尔、吉诺比利）：同名的现在是普通勋章，换成它（魔术师换一枚没有的）
-    const LEGACY_LEGEND = { kobe: 'kobe', magic: null, rodman: 'rodman', shaq: 'shaq', manu: 'manu' };
+    // 老存档里 11-18 删掉的传奇勋章（科比、魔术师、罗德曼、奥尼尔、吉诺比利）：同名的现在是普通勋章，换成它
+    //   11-28 起魔术师、奥尼尔又是传奇勋章了（magic、diesel），换回传奇
+    const LEGACY_LEGEND = { kobe: 'kobe', magic: 'magic', rodman: 'rodman', shaq: 'diesel', manu: 'manu' };
     const old = (run.passives || []).filter((k) => E.OLD_NORMAL[k] || k in LEGACY_LEGEND);
     if (me && old.length) {
       for (const k of old) if (E.OLD_NORMAL[k]) for (const [a, v] of Object.entries(E.OLD_NORMAL[k].attr)) {
         me.attrs[a] -= v;
         if (me.bonus && me.bonus[a]) { me.bonus[a] -= v; if (me.bonus[a] <= 0) delete me.bonus[a]; }
       }
-      const next = run.passives.filter((k) => !old.includes(k) && E.PASSIVES[k]);
+      const next = run.passives.filter((k) => !old.includes(k) && (E.PASSIVES[k] || E.PASSIVES[E.RENAMED[k]])); // 改过名的先留着，下面统一换成新名字
       for (const k of old) {
         let to = E.OLD_NORMAL[k] ? E.OLD_NORMAL[k].to : LEGACY_LEGEND[k];
         if (!to || next.includes(to) || !E.PASSIVES[to]) to = Object.keys(E.PASSIVES).find((x) => !E.PASSIVES[x].rare && !next.includes(x));
@@ -70,7 +71,7 @@ if (run) {
       Object.assign(me, Career.projectLine(me));
     }
     // 待选三枚里的旧勋章先空出来，下面统一补抽成新勋章
-    if (run.passiveOffer) run.passiveOffer = run.passiveOffer.map((k) => (E.OLD_NORMAL[k] || k === 'magic' ? null : k));
+    if (run.passiveOffer) run.passiveOffer = run.passiveOffer.map((k) => (E.OLD_NORMAL[k] ? null : k));
     run.medalV = 2;
     store.set('nba-run', run);
   }
@@ -78,8 +79,9 @@ if (run) {
   const meOld = run.career && run.team && run.team.find((p) => p.isMe);
   if (meOld && meOld.look == null && window.Faces) { meOld.look = Math.floor(Math.random() * Faces.count); store.set('nba-run', run); }
   // 11-19 当天改名的普通勋章（雷·阿伦→克莱、欧文 / 韦德→吉诺比利、佩顿→皮蓬）：同一项能力 +2，只换名字
+  // 11-28 传奇勋章：库里→魔术师、杜兰特→奥尼尔（都是传奇，没有能力加成，直接换）
   const ren = (k) => E.RENAMED[k] || k;
-  if (run.passives) run.passives = run.passives.map(ren);
+  if (run.passives) run.passives = [...new Set(run.passives.map(ren))];
   // 改名后和已有的、或者三枚里互相撞了的，空出来让下面补抽
   if (run.passiveOffer) run.passiveOffer = run.passiveOffer.map(ren).map((k, i, a) => ((run.passives || []).includes(k) || a.indexOf(k) !== i ? null : k));
   if (run.passives) run.passives = run.passives.filter((k) => E.PASSIVES[k]);
@@ -870,7 +872,8 @@ function match() {
   const L = E.LEVELS[run.level];
   setStage(L);
   const bd = bondOf(run.team);
-  const r = E.simulate(run.team, run.level, { myBonus: E.chemistry(run.wins), myBond: bd.bonus, bondWho: bd.who.map((p) => p.name), bondText: bd.text, myLabel: run.teamLabel, passives: run.passives || [] });
+  const legendBoost = window.Career && Career.LEGEND_PITY ? (run.legendMiss || 0) * Career.LEGEND_PITY : 0; // 传奇勋章保底：连着没触发，每场 +2%
+  const r = E.simulate(run.team, run.level, { myBonus: E.chemistry(run.wins), myBond: bd.bonus, bondWho: bd.who.map((p) => p.name), bondText: bd.text, myLabel: run.teamLabel, passives: run.passives || [], legendBoost });
   app.innerHTML = `
     ${statusBar()}
     <section class="card">

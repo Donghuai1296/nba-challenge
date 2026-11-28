@@ -262,7 +262,8 @@
   // 前几关对手处于"赛季初状态"，实力打折：前 3 关大幅打折（让新手先赢起来），之后一直慢慢减到第 11 关（以前到第 5 关就断崖，第 6 关特别难）
   const EASE = [12, 11, 10, 8, 7, 6, 5, 4, 3, 2, 1];
   // Boss 关再降一点（Boss 首发 5 人同队，有 +5 羁绊，合起来还是比前后两关难）
-  const BOSS_EASE = 2.5;
+  // 2026-11-28：2.5 → 1（Boss 实力 +1.5）。传奇勋章改成抽中 30%、触发 20% 后，抵消乔丹得分翻倍、麦迪必胜帮你赢下的 Boss 关
+  const BOSS_EASE = 1;
   const isBoss = (i) => BOSS_SLOTS.includes(i);
   const bossOf = (i) => (isBoss(i) ? BOSSES[BOSS_SLOTS.indexOf(i)] : null);
   // 「大鲨鱼奥尼尔」「篮球之神乔丹」；魔术师约翰逊名字里已经有外号，不重复
@@ -374,11 +375,19 @@
   const PASSIVES = {
     // 传奇被动：每场按概率触发（几率很小），几个可以同一场一起触发、效果叠加；rate = 每场触发概率
     // 2026-11-18 用户要求只留 5 个：乔丹、詹姆斯、麦迪、库里、杜兰特（科比、魔术师、罗德曼、吉诺比利、奥尼尔已删，老存档里的会被清掉）
-    jordan: { name: '魔王降临', star: '迈克尔·乔丹', rare: true, rate: 0.05, desc: '你这场得分、篮板、助攻、抢断、盖帽最多各 +5（按上场时间）' },
-    lebron: { name: '天选之子', star: '勒布朗·詹姆斯', rare: true, rate: 0.05, desc: '这场全队能力值 +5' },
-    tmac: { name: '麦迪奇迹', star: '特雷西·麦克格雷迪', rare: true, rate: 0.05, desc: '最后 35 秒逆天改命：连得 13 分，这场必胜' },
-    curry: { name: '三分之神', star: '斯蒂芬·库里', rare: true, rate: 0.05, desc: '你这场额外命中最多 8 记三分（+24 分，按上场时间）' },
-    kd: { name: '死神镰刀', star: '凯文·杜兰特', rare: true, rate: 0.05, desc: '连续中投，你这场额外最多拿下 20 分（按上场时间）' },
+    // 2026-11-28 用户重做：乔丹 单场得分翻倍；詹姆斯 得分、篮板、助攻、抢断、盖帽各 +5（原来乔丹那个，用户说「都 +5」，不再按上场时间折算）；
+    //   库里「三分之神」换成魔术师 单场助攻翻倍；杜兰特「死神镰刀」换成奥尼尔「鲨鱼来袭」单场篮板翻倍
+    //   （老存档里的库里、杜兰特勋章见下面 RENAMED，直接换成魔术师、奥尼尔）
+    //   key 用 diesel：shaq 这个 key 一直是普通勋章（力量 +2），老存档里戴着的人很多，不能拿来当传奇
+    //   触发概率（11-28 用户：游戏的重点是触发传奇勋章、一场拿到夸张数据的爽感 → 抽中 30%、触发 20%）：
+    //   整局模拟（scratchpad 的 legend-run.js，真引擎 1500~2000 局）：全部 20% 时三分之一的比赛会触发，但全通率 2% → 13%，
+    //   Boss 关的胜利有 22% 是乔丹 / 麦迪带走的。用户选了调整版：麦迪（必胜，不出数据）降到 10%，Boss 实力 +1.5（BOSS_EASE 2.5 → 1）
+    //   → 28% 的比赛触发、每局约 2 场 50+ 分，全通率 6%、Boss 关胜率 71%，和改之前差不多难
+    jordan: { name: '魔王降临', star: '迈克尔·乔丹', rare: true, rate: 0.20, desc: '你这场得分翻倍' },
+    lebron: { name: '天选之子', star: '勒布朗·詹姆斯', rare: true, rate: 0.20, desc: '你这场得分、篮板、助攻、抢断、盖帽各 +5' },
+    tmac: { name: '麦迪奇迹', star: '特雷西·麦克格雷迪', rare: true, rate: 0.10, desc: '最后 35 秒逆天改命：连得 13 分，这场必胜' },
+    magic: { name: '魔术时刻', star: '魔术师约翰逊', rare: true, rate: 0.20, desc: '你这场助攻翻倍' },
+    diesel: { name: '鲨鱼来袭', star: '沙奎尔·奥尼尔', rare: true, rate: 0.20, desc: '你这场篮板翻倍' },
     // 普通被动（2026-11-19 用户要求重做）：11 项能力各一枚，每枚对应这项能力史上最强的人，那一项 +2
     //   用户举的例子：奥尼尔「鲨鱼来袭」力量 +2。加点单项最高 100，勋章是唯一能超过 100 的办法（最高 102）
     //   用户 11-19 定的：3分 水花兄弟克莱、2分 曼巴精神科比、终结 妖刀出鞘吉诺比利、控球 费城答案艾弗森、传球 控卫之神保罗、
@@ -391,12 +400,14 @@
     pippen: { name: '防守大闸', star: '斯科蒂·皮蓬', attr: { 外防: 2 }, desc: '外防 +2' },
     mutombo: { name: '非洲大山', star: '迪肯贝·穆托姆博', attr: { 内防: 2 }, desc: '内防 +2' },
     rodman: { name: '篮板怪兽', star: '丹尼斯·罗德曼', attr: { 篮板: 2 }, desc: '篮板 +2' },
-    shaq: { name: '鲨鱼来袭', star: '沙奎尔·奥尼尔', attr: { 力量: 2 }, desc: '力量 +2' },
+    // 力量这枚原来是奥尼尔「鲨鱼来袭」，11-28 奥尼尔「鲨鱼来袭」改成传奇勋章（篮板翻倍），这枚换成卡尔·马龙；key 不变，老存档不用迁移
+    shaq: { name: '钢铁邮差', star: '卡尔·马龙', attr: { 力量: 2 }, desc: '力量 +2' },
     rose: { name: '风城玫瑰', star: '德里克·罗斯', attr: { 运动: 2 }, desc: '运动 +2' },
     carter: { name: '半人半神', star: '文斯·卡特', attr: { 弹跳: 2 }, desc: '弹跳 +2' },
   };
   // 11-19 当天改过名的普通勋章 key（加成一样，直接换名字）
-  const RENAMED = { ray: 'klay', kyrie: 'manu', wade: 'manu', payton: 'pippen' };
+  // 11-28：传奇勋章库里「三分之神」→ 魔术师「魔术时刻」，杜兰特「死神镰刀」→ 奥尼尔「鲨鱼来袭」（用户说「换」，戴着的直接换成新的）
+  const RENAMED = { ray: 'klay', kyrie: 'manu', wade: 'manu', payton: 'pippen', curry: 'magic', kd: 'diesel' };
   // 2026-11-19 之前的普通勋章（老存档迁移用：先扣掉旧加成，再换成对应的新勋章）
   const OLD_NORMAL = {
     mills: { attr: { '3分': 2 }, to: 'klay' }, kerr: { attr: { '3分': 2, '2分': 2 }, to: 'kobe' }, perkins: { attr: { 内防: 3, 力量: 2 }, to: 'shaq' },
@@ -413,13 +424,15 @@
     const pas = new Set(opts.passives || []);
     // 传奇被动：先逐个掷骰子（只有你在阵中才会触发）
     const me = myTeam.find((p) => p.isMe);
-    const hit = new Set(me ? [...pas].filter((k) => PASSIVES[k] && PASSIVES[k].rare && rand() < PASSIVES[k].rate) : []);
+    // legendBoost：保底，前面连着几场没触发，每枚的概率都加上（career.js 的 LEGEND_PITY × 没触发的场数）
+    const boost = opts.legendBoost || 0;
+    const hit = new Set(me ? [...pas].filter((k) => PASSIVES[k] && PASSIVES[k].rare && rand() < PASSIVES[k].rate + boost) : []);
     const triggers = [...hit];
     // 羁绊（opts.myBond + opts.bondWho）：只给羁绊里的那几个人加能力值
     const bond = opts.myBond || 0;
     const bondWho = new Set(opts.bondWho || []);
-    const team = myTeam.map((p, i) => {
-      const b = (hit.has('lebron') ? 5 : 0) + (bondWho.has(p.name) ? bond : 0);
+    const team = myTeam.map((p) => {
+      const b = bondWho.has(p.name) ? bond : 0;
       return b ? { ...p, ovr: p.ovr + b } : p;
     });
     const myPower = teamPower(team) + (opts.myBonus || 0);
@@ -448,14 +461,16 @@
     if (L.bond) notes.push({ side: 1, text: `【羁绊】${nick(L.team)}首发 5 人同队，首发 5 人能力 +${L.bond}！`, bold: true, pre: true });
     const mods = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, ptsMul: 1 };
     const note = (k, text) => notes.push({ side: 0, text: `【${PASSIVES[k].name}】${text}`, bold: true, me: true, skill: true });
-    // 传奇勋章的额外数据按你的上场时间折算（打满 34 分钟拿满），而且比以前少：
-    //   起因：用户说「初始球员 14 分钟得 33 分太夸张」——以前死神镰刀不管打几分钟都 +30 分、三分之神 +45 分
-    const myIdx = team.findIndex((p) => p.isMe);
-    const mf = myIdx < 0 ? 0 : Math.min(1, (myIdx < 5 ? 36 : myBenchMin(team[myIdx].ovr)) / 34);
-    if (hit.has('jordan')) { const j = Math.max(1, Math.round(5 * mf)); for (const k of ['pts', 'reb', 'ast', 'stl', 'blk']) mods[k] += j; final[0] += j; note('jordan', `${me.name}魔王降临，攻防两端全面爆发！`); }
-    if (hit.has('curry')) { const n = Math.max(2, Math.round(8 * mf)); mods.pts += 3 * n; mods.force3 = n; final[0] += 3 * n; note('curry', `${me.name}三分之神降临，今晚要多投进 ${n} 记三分！`); }
-    if (hit.has('kd')) { const n = Math.max(2, Math.round(10 * mf)); mods.pts += 2 * n; mods.force2 = n; final[0] += 2 * n; note('kd', `${me.name}死神镰刀出鞘，连续中投收割比赛！`); }
-    if (hit.has('lebron')) notes.push({ side: 0, text: `【天选之子】全队被带飞，状态拉满！`, bold: true, skill: true });
+    // 传奇勋章（11-28 重做）：翻倍的三个在 boxScore 里，按你这场本来的数据翻倍（替补上场时间短，翻倍后也少，不会出现 14 分钟 60 分）；
+    //   天选之子是各项固定 +5（多出来的 5 分算进全队比分）
+    if (hit.has('lebron')) { for (const k of ['pts', 'reb', 'ast', 'stl', 'blk']) mods[k] += 5; final[0] += 5; note('lebron', `${me.name}天选之子，攻防两端全面爆发！`); }
+    if (hit.has('jordan')) { mods.ptsX2 = true; note('jordan', `${me.name}魔王降临，今晚得分翻倍！`); }
+    if (hit.has('magic')) { mods.astX2 = true; note('magic', `${me.name}魔术时刻，今晚助攻翻倍！`); }
+    if (hit.has('diesel')) { mods.rebX2 = true; note('diesel', `${me.name}鲨鱼来袭，今晚篮板翻倍！`); }
+    // 你这队的数据表先算：乔丹得分翻倍时你多拿的分要算进全队比分，后面的麦迪奇迹、Boss 技能都按这个真实比分来安排
+    const box0 = boxScore(team, final[0], rand, { ...mods, rebMul: sk === 'paint' ? 0.75 : 1 });
+    final[0] = box0.reduce((s, x) => s + x.pts, 0);
+    if (final[0] === final[1]) final[1] += rand() < 0.5 ? 1 : -1; // 翻倍后正好打平：差一分分出胜负（没有加时）
     // 麦迪奇迹：最后 35 秒前落后 3~12 分，然后连得 13 分反超
     let tail = null;
     if (hit.has('tmac')) {
@@ -492,7 +507,7 @@
       ] };
       bossHit = true;
     }
-    const box = [boxScore(team, final[0], rand, { ...mods, rebMul: sk === 'paint' ? 0.75 : 1 }), boxScore(L.roster, final[1], rand, { rebMul: sk === 'paint' ? 1.15 : 1 })];
+    const box = [box0, boxScore(L.roster, final[1], rand, { rebMul: sk === 'paint' ? 1.15 : 1 })];
     const labels = [opts.myLabel || '我队', nick(L.team)];
     const { events, quarters } = playByPlay(box, labels, rand, { notes, tail });
     // 最后几十秒的固定事件（麦迪奇迹 / 乔丹最后一投）：得分加到比分和那个人的数据上（三分、两分、罚球都记上）
@@ -655,6 +670,7 @@
     // 你自己：按你的场均 × 上场时间（34 分钟算满）直接算，有起伏；队友再分剩下的
     const mi = players.findIndex((p) => p.isMe);
     let mine = null;
+    let ptsExtra = 0;
     if (mi >= 0 && M[mi]) {
       const p = players[mi], f = M[mi] / 34;
       // 数据稀释：身边的人越强，你的球权越少。分量 =（总评-60）²，和「你 + 4 个 80 分队友」比
@@ -666,9 +682,14 @@
       const use = Math.min(1.25, Math.max(1, Math.pow(share / ref, 0.25)));
       const useReb = Math.min(1.15, Math.max(1, Math.pow(share / ref, 0.15)));
       const v = (x, k, sd) => Math.max(0, Math.round((x || 0) * f * k * (1 + gauss(rand) * sd)));
-      // 每分钟最多 1.7 分（14 分钟最多 24 分，36 分钟最多 61 分）；勋章必中的球不受影响
-      const capByMin = Math.max(Math.round(M[mi] * 1.7), (mods.force3 || 0) * 3 + (mods.force2 || 0) * 2 + 4);
+      // 每分钟最多 1.7 分（14 分钟最多 24 分，36 分钟最多 61 分）；勋章固定加的分（天选之子 +5）不受这个限制
+      const capByMin = Math.round(M[mi] * 1.7) + (mods.pts || 0);
       mine = { pts: Math.min(v(p.pts, use, 0.22) * (mods.ptsMul || 1) + (mods.pts || 0), Math.round(pts * (mods.ptsMul > 1 ? 0.75 : 0.6)) + (mods.pts || 0), capByMin), reb: Math.round(v(p.reb, useReb, 0.3) * (mods.rebMul || 1)) + (mods.reb || 0), ast: v(p.ast, use, 0.3) + (mods.ast || 0), stl: v(p.stl, 1, 0.5) + (mods.stl || 0), blk: v(p.blk, 1, 0.5) + (mods.blk || 0), tov: v(p.tov || 1.5, use, 0.45) };
+      // 传奇勋章翻倍（11-28）：在你这场本来的数据（上面各种上限之后）上翻倍。
+      //   得分：多出来的分算进全队总分，队友的分不受影响；篮板、助攻：全队总数不变，从队友那份里挤（直播里每个助攻、篮板都要对得上进球和投丢）
+      if (mods.ptsX2) { ptsExtra = mine.pts; mine.pts *= 2; }
+      if (mods.rebX2) mine.reb *= 2;
+      if (mods.astX2) mine.ast *= 2;
     }
     const Mo = mine ? M.map((m, i) => (i === mi ? 0 : m)) : M;
     const alloc = (key, total, power) => {
@@ -676,7 +697,7 @@
       if (mine) out[mi] = mine[key];
       return out;
     };
-    const Pp = alloc('pts', pts);
+    const Pp = alloc('pts', pts + ptsExtra);
     const R = alloc('reb', Math.round(scale(44, 4) * (mods.rebMul || 1))); // rebMul：Boss「篮下统治」
     const A = alloc('ast', scale(25, 4));
     const St = alloc('stl', scale(7, 2), 1);
@@ -762,16 +783,24 @@
     const missText = (s, three) => `${s.name}${pickFrom(three ? MISS3 : MISS2, rand)}`;
     for (let t = 0; t < 2; t++) {
       const o = 1 - t;
-      const astLeft = new Map(on[t].map((x) => [x, x.ast]));
       const units = on[t].flatMap((r) => r.units.map((u) => ({ r, u })));
-      const fg = units.filter((x) => x.u.k !== 'ft').length;
+      // 助攻先分到进球上（11-28）：每个助攻对应一个别人投进的球，助攻多的人先挑。
+      //   以前是每个进球按「剩下助攻 / 剩下进球」掷骰子，打完常常剩一两个助攻没地方放，数据表比直播多（老版本约四成场次）；
+      //   魔术师助攻翻倍以后更明显。实在放不下的（极少）数据表跟着减，保证两边对得上
+      const helperOf = new Map();
+      const plain = units.filter((x) => x.u.k === 2 || x.u.k === 3);
+      for (const h of on[t].filter((x) => x.ast > 0).sort((a, b) => b.ast - a.ast)) {
+        const free = shuffle(plain.filter((x) => !helperOf.has(x) && x.r !== h), rand);
+        const n = Math.min(h.ast, free.length);
+        for (let i = 0; i < n; i++) helperOf.set(free[i], h);
+        h.ast = n;
+      }
       const cnt = { c3: 0, k2: 0 };
-      let fgLeft = fg;
-      for (const { r, u } of units) {
+      for (const unit of units) {
+        const { r, u } = unit;
         const ev = (text, pts = 0, bold = false, who = r) => ({ side: t, text, pts, bold, me: !!who.me });
         if (u.k === 'c3' || u.k === 'k2') {
           cnt[u.k]++;
-          fgLeft--;
           put([{ ...ev(u.k === 'c3' ? `${r.name}【三分之神】三分命中（第 ${cnt.c3} 记）` : `${r.name}【死神镰刀】中投命中（第 ${cnt.k2} 记）`, u.k === 'c3' ? 3 : 2, true), skill: true }]);
           continue;
         }
@@ -788,14 +817,7 @@
           continue;
         }
         const u3 = u.k;
-        // 这一球有没有助攻：按剩下的助攻数 / 剩下的进球数
-        const totalAst = [...astLeft.values()].reduce((a, b) => a + b, 0);
-        let helper = null;
-        if (totalAst > 0 && rand() < totalAst / Math.max(fgLeft, 1)) {
-          const cands = on[t].filter((x) => x !== r && astLeft.get(x) > 0);
-          if (cands.length) { helper = weighted(cands, (x) => astLeft.get(x), rand); astLeft.set(helper, astLeft.get(helper) - 1); }
-        }
-        fgLeft--;
+        const helper = helperOf.get(unit) || null; // 这一球的助攻（上面先分好的）
         const desc = u3 === 3 ? pickFrom(SHOT3, rand) : helper && BIG(r) && rand() < 0.18 ? pickFrom(ALLEY, rand) : pickFrom(BIG(r) ? SHOT2_B : SHOT2_G, rand);
         // 隐藏能力的专属招式：传球型的助攻、得分型的进球，有一半以上会用专属说法
         // 每个隐藏能力第一次一定触发，之后一半多的概率

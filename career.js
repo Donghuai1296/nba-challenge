@@ -542,14 +542,36 @@
 
   // ================= 被动技能：每过 5 关三选一（定义在 engine.js 的 PASSIVES） =================
   const PASSIVE_EVERY = 3; // 每打赢 3 关抽一次（和五大 Boss 无关）
-  const LEGEND_PASSIVE_RATE = 0.15; // 抽到传奇被动的概率（每枚勋章）
+  const LEGEND_PASSIVE_RATE = 0.30; // 抽到传奇被动的概率（每枚勋章）；11-28 用户改 15% → 30%（普通 70%）
   const PASSIVE_DRAWS = 3; // 每次 3 枚勋章
-  // 抽一枚：15% 传奇、85% 普通；已经有的不再出现，普通的抽完了就只剩传奇
+  // 传奇勋章保底（两个开关，现在都关着）：
+  //   ① LEGEND_GUARANTEE_AT：打赢这几关的 Boss 后那次解锁，3 枚里至少 1 枚传奇
+  //   ② LEGEND_PITY：戴着传奇却一场没触发，下一场每枚加这么多，触发过就清零（run.legendMiss）
+  //   11-28 先做了「第 6、12 关保底 + 每场 +2%」；同一天用户把抽中改 30%、触发改 20%，几乎不会连着几场不触发，保底用不上，关掉
+  const LEGEND_GUARANTEE_AT = [];
+  const LEGEND_PITY = 0;
+  // 抽一枚：30% 传奇、70% 普通；已经有的不再出现，普通的抽完了就只剩传奇
   function drawPassive(owned = [], rand = Math.random) {
     const keys = Object.keys(E.PASSIVES).filter((k) => !owned.includes(k));
     const rare = keys.filter((k) => E.PASSIVES[k].rare), normal = keys.filter((k) => !E.PASSIVES[k].rare);
     const pool = (rand() < LEGEND_PASSIVE_RATE && rare.length) || !normal.length ? rare : normal;
     return pool.length ? pool[Math.floor(rand() * pool.length)] : null;
+  }
+  // 一次解锁的 3 枚；guarantee：没抽到传奇就把其中一枚普通的换成一枚还没有的传奇
+  function drawOffer(owned = [], guarantee = false, rand = Math.random) {
+    const offer = [];
+    for (let i = 0; i < PASSIVE_DRAWS; i++) {
+      const k = drawPassive([...owned, ...offer], rand);
+      if (k) offer.push(k);
+    }
+    if (guarantee && !offer.some((k) => E.PASSIVES[k].rare)) {
+      const rare = Object.keys(E.PASSIVES).filter((k) => E.PASSIVES[k].rare && !owned.includes(k) && !offer.includes(k));
+      if (rare.length) {
+        const k = rare[Math.floor(rand() * rare.length)];
+        if (offer.length < PASSIVE_DRAWS) offer.push(k); else offer[Math.floor(rand() * offer.length)] = k;
+      }
+    }
+    return offer;
   }
   // 选中后：能力型被动直接加到你身上，是额外加成（不受 99 限制，记在 me.bonus 里）
   function applyPassive(me, key) {
@@ -561,7 +583,7 @@
     return me;
   }
 
-  const api = { PICK_STARS, makeRookie, rookieFloor, OVR_OFFSET, SIGNATURE, GROW_POINTS, growTarget, growTo, attrCap, POINTS_PER_GAME, ATTR_STAT, addPoints, suggestPoints,PASSIVE_EVERY, PASSIVE_DRAWS, LEGEND_PASSIVE_RATE, drawPassive, applyPassive, OVR_MAX, SUPERSTARS, HIDDEN, QUIZ, hiddenFromAnswers, PLAY_STYLES, playStyle, ATTRS, grade, gradeClass, attrsOf, ovrFromAttrs, decay, ROOKIE, TEAM_CN, CITY, LEAGUE, buildTeams, teamOfStar, joinRoster, drawMates, cardRank, rosterOf, projectLine, simulateSeason, XP_PER_LEVEL, gameXP, upgradeChoices, applyUpgrade, WEIGHTS };
+  const api = { PICK_STARS, makeRookie, rookieFloor, OVR_OFFSET, SIGNATURE, GROW_POINTS, growTarget, growTo, attrCap, POINTS_PER_GAME, ATTR_STAT, addPoints, suggestPoints,PASSIVE_EVERY, PASSIVE_DRAWS, LEGEND_PASSIVE_RATE, LEGEND_GUARANTEE_AT, LEGEND_PITY, drawPassive, drawOffer, applyPassive, OVR_MAX, SUPERSTARS, HIDDEN, QUIZ, hiddenFromAnswers, PLAY_STYLES, playStyle, ATTRS, grade, gradeClass, attrsOf, ovrFromAttrs, decay, ROOKIE, TEAM_CN, CITY, LEAGUE, buildTeams, teamOfStar, joinRoster, drawMates, cardRank, rosterOf, projectLine, simulateSeason, XP_PER_LEVEL, gameXP, upgradeChoices, applyUpgrade, WEIGHTS };
   if (IS_NODE) module.exports = api;
   else root.Career = api;
 })(typeof window !== 'undefined' ? window : globalThis);
