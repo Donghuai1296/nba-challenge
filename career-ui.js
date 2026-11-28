@@ -131,12 +131,12 @@ function sigOf(me) {
 let build = null; // 建球员的进度
 function createPos(sel = null) {
   const fav = intro && intro.star && starOf(intro.star);
-  app.innerHTML = `
+  app.innerHTML = `<div class="fill-page pos-page">
     <div class="spread"><h2>选择我的位置</h2><button class="muted small" id="back">返回</button></div>
     <p class="muted small">你会成为一名新秀，加入${fav ? ` ${esc(short(fav.name))} ` : '一位明星'}所在的球队。</p>
     <div class="pos-pick">${E.POS.map((p) => `<button class="pos-btn ${sel === p ? 'sel' : ''}" data-p="${p}">${posCourt(p)}
       <span class="pos-txt"><b>${E.POS_LABEL[p]}<em>${p}</em></b><small>${POS_ROLE[p]}</small></span>${fav && fav.pos === p ? `<i class="pos-rec">${esc(short(fav.name))}的位置</i>` : ''}</button>`).join('')}</div>
-    <button class="btn btn-primary sticky-cta" id="ok" ${sel ? '' : 'disabled'}>确认位置</button>`;
+    <button class="btn btn-primary sticky-cta" id="ok" ${sel ? '' : 'disabled'}>确认位置</button></div>`;
   // 返回：建球员建到一半 → 回建球员；刚起完名字 → 回起名页；其他 → 首页
   document.getElementById('back').onclick = () => go(build && build.team ? buildScreen : build && fav ? () => lookPage(fav, () => go(createPos), '下一步：选位置') : home);
   app.querySelectorAll('.pos-btn').forEach((b) => (b.onclick = () => createPos(b.dataset.p)));
@@ -190,7 +190,7 @@ function buildScreen() {
   const { vals, down } = previewValues();
   const done = n === C.ATTRS.length;
   const ovr = done ? C.makeRookie(build.pos, build.locked).ovr : null;
-  app.innerHTML = `
+  app.innerHTML = `<div class="fill-page build-page">
     <h2 style="text-align:center">创建球员</h2>
     <p class="muted small" style="text-align:center">我的位置：${E.POS_LABEL[build.pos]}（${build.pos}） <button class="link-btn" id="editPos">改位置</button></p>
     <div class="bprog"><div class="bar"><i style="width:${(n / C.ATTRS.length) * 100}%"></i></div><b class="num">${n}/${C.ATTRS.length}</b></div>
@@ -225,7 +225,7 @@ function buildScreen() {
     </div>
     ${done ? `<section class="card"><p>能力值不打折。新秀赛季（文字模拟）的常规赛、季后赛数据打九折；进入挑战王朝后数据不打折。</p>
       <p class="small muted">每项都有位置保底：本位置的核心能力至少 C+，其他也至少 C-。</p></section>
-      <button class="btn btn-primary" id="finish">${intro && intro.star ? `完成，空降${esc(C.teamOfStar(starOf(intro.star)).cn)}` : '完成，选一位明星加入他的球队'}</button>` : ''}`;
+      <button class="btn btn-primary" id="finish">${intro && intro.star ? `完成，空降${esc(C.teamOfStar(starOf(intro.star)).cn)}` : '完成，选一位明星加入他的球队'}</button>` : ''}</div>`;
   document.getElementById('editPos').onclick = () => go(() => createPos(build.pos)); // 改位置（问答后默认用了球星的位置）
   if (!done) {
     // 手机上也是左右两栏（左边能力、右边挑人），挑人、锁定都不用滚动（2026-11-27 用户：「改成左右屏，不要上下屏」）
@@ -288,10 +288,10 @@ function buildScreen() {
 //   名字框在大卡下面，打字时大卡上的名字跟着变；下面按你的打法给 3 个虎扑味的名字建议（点一下填进去，🎲 换一批）；
 //   不起名就叫「无名新秀」。虎扑版自己打的名字要先过内容安全检测（GameHupu.checkText），建议的名字是游戏自带的，不用检测
 // 2026-11-28 用户：「玩家姓名不再是无名新秀，默认是虎扑ID，也可以自己改名或者是随机姓名」：
-//   默认名字依次取：上次起过的名字 → 虎扑昵称（GameHupu.userName，最多 8 个字）→ 随机名字；🎲 直接换一个随机名字填进去。
+//   默认名字依次取：上次起过的名字 → 虎扑昵称（GameHupu.userName，完整昵称，不截断——11-28 用户「i want full name」）→ 随机名字；🎲 直接换一个随机名字填进去。
 //   虎扑昵称是虎扑审核过的，和游戏自带的名字一样不再过内容检测；自己打的名字照旧要检测
 const DEFAULT_NAME = '无名新秀'; // 老存档里的默认名字（新开局不再用）
-let hupuNick = ''; // 这次打开游戏读到的虎扑昵称（截到 8 个字）
+let hupuNick = ''; // 这次打开游戏读到的虎扑昵称（完整的）
 let nickLoading = null;
 // 读虎扑昵称（只读一次）；接口出错按虎扑的要求把平台给的提示显示出来，游戏照常用随机名字
 function loadHupuNick() {
@@ -299,7 +299,7 @@ function loadHupuNick() {
   if (!window.GameHupu || !window.GameHupu.userName) return (nickLoading = Promise.resolve(''));
   nickLoading = window.GameHupu.userName().then((r) => {
     if (r && r.msg) toast(r.msg);
-    hupuNick = r && r.name ? cut8(r.name) : '';
+    hupuNick = r && r.name ? String(r.name).trim() : '';
     return hupuNick;
   }, () => '');
   return nickLoading;
@@ -321,8 +321,8 @@ function nameIdeas(n = 3, avoid = []) {
 }
 const randomName = (avoid = []) => nameIdeas(1, avoid)[0] || NAME_COMMON[0];
 const isPresetName = (s) => s === DEFAULT_NAME || NAME_POOL.includes(s) || (!!hupuNick && s === hupuNick);
-// 名字最多 8 个字（按字符算，表情不会被切开）
-const cut8 = (s) => Array.from(String(s || '').trim()).slice(0, 8).join('');
+// 自己打的名字最多 16 个字（以前 8 个；11-28 用户要完整的虎扑昵称，一起放宽）。虎扑昵称比这还长也照原样用
+const NAME_MAX = 16;
 function lookPage(star, next, nextLabel = '进入联盟') {
   const code = C.teamOfStar(star).team;
   const { kit } = Avatar.kitOf({ name: build.name, team: code, from: '现役', season: '本季', isMe: true, num: 7 });
@@ -336,8 +336,8 @@ function lookPage(star, next, nextLabel = '进入联盟') {
   app.innerHTML = `<p class="eyebrow">🪞 进入联盟之前</p><h2>起个名字，挑个造型</h2>
     <div class="look-stage"><div class="look-card done" id="lookBig" style="--c1:${kit.primary}">${Faces.LOOKS.map((L, i) => big(i)).join('')}</div></div>
     <section class="name-box">
-      <label class="name-label" for="myName">你的名字<small>最多 8 个字，可改可随机</small></label>
-      <input class="name-input" id="myName" maxlength="8" placeholder="给自己起个名字" autocomplete="off" value="${esc(named)}">
+      <label class="name-label" for="myName">你的名字<small>最多 ${NAME_MAX} 个字，可改可随机</small></label>
+      <input class="name-input" id="myName" maxlength="${Math.max(NAME_MAX, Array.from(named).length, Array.from(hupuNick).length)}" placeholder="给自己起个名字" autocomplete="off" value="${esc(named)}">
       <div class="name-ideas"><span>试试：</span><span id="ideas"></span><button type="button" class="name-idea dice" id="moreIdeas" aria-label="随机一个名字">🎲 随机</button></div>
     </section>
     <p class="look-sub">挑个造型（点小卡看大图）</p>
@@ -353,7 +353,8 @@ function lookPage(star, next, nextLabel = '进入联盟') {
   // 按钮、大卡上的名字都是纯文字，用 textContent 写
   const refresh = () => {
     okBtn.textContent = `就叫「${nameNow()}」，${nextLabel}`;
-    card.querySelectorAll('.lc-me').forEach((x) => (x.textContent = nameNow()));
+    const n = nameNow();
+    card.querySelectorAll('.lc-me').forEach((x) => { x.textContent = n; x.classList.toggle('long', Array.from(n).length > 8); }); // 长名字（完整虎扑昵称）换两行小字，不截断
   };
   const setName = (n) => { input.value = n; touched = true; refresh(); };
   // 建议的名字：有虎扑昵称时第一个是它（改了名还能一键改回来），后面 3 个随机；都用 textContent 写
@@ -379,6 +380,7 @@ function lookPage(star, next, nextLabel = '进入联盟') {
   if (!hupuNick && window.GameHupu && window.GameHupu.userName) {
     loadHupuNick().then(() => {
       if (!hupuNick || !input.isConnected) return;
+      input.maxLength = Math.max(input.maxLength, Array.from(hupuNick).length);
       if (!touched && !(stored && stored !== DEFAULT_NAME) && !(build.name && build.name !== DEFAULT_NAME)) { input.value = hupuNick; fallback = hupuNick; refresh(); }
       showIdeas();
     });
@@ -1698,6 +1700,13 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 .spin-head{text-align:center;color:#ff8a4a;font-weight:700}.spin{text-align:center;font-size:24px;font-weight:900;padding:14px;margin:8px 0;border-radius:14px;background:rgba(255,255,255,.06)}
 .small-btn{padding:8px 12px;font-size:13px;width:100%}
 .bplayers{display:grid;gap:6px}.bp{display:grid;grid-template-columns:40px 1fr auto;gap:8px;align-items:center;padding:6px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit;text-align:left}
+/* 选位置、创建球员：铺满一屏（11-28 用户：「页面可以整体再下一点，页面下方的留白有点多」）。
+   位置卡、能力格、球员列表按剩下的高度平分，屏幕越高越大；内容比一屏多就照常往下排 */
+.fill-page{display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 56px);min-height:calc(100svh - 56px)}
+.pos-page .pos-pick{flex:1;grid-auto-rows:1fr}.pos-page .pos-btn{grid-template-columns:92px 1fr;padding:12px 16px 12px 12px}.pos-page .pos-court{width:92px;height:74px}.pos-page .pos-txt b{font-size:19px}.pos-page .pos-txt small{font-size:13px}
+.pos-page .sticky-cta{margin-bottom:4vh}
+.build-page .build{flex:1;align-items:stretch}.build-page .bleft,.build-page .bright{display:flex;flex-direction:column}
+.build-page .bleft .attr-grid{flex:1;grid-auto-rows:1fr}.build-page .bplayers{flex:1;grid-auto-rows:1fr}.build-page .bp-av{width:44px;height:44px}.build-page .bp{grid-template-columns:44px 1fr auto}
 .bp.sel{border-color:#ff8a4a;background:rgba(255,138,74,.15)}.bp-av{width:40px;height:40px;overflow:hidden;border-radius:50%}.bp-av svg{width:100%;height:100%}.bp small{display:block;color:#9aa4b8}.bp span{font-size:20px;font-weight:900}
 .story p{line-height:1.8;margin:8px 0}.story .eyebrow,.hupu .eyebrow,.lu-card .eyebrow{color:#ff8a4a;letter-spacing:.2em;font-size:12px}.quote{font-style:italic;color:#f2c94c}
 .statline{display:grid;gap:2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06);margin:10px 0}.statline span{font-size:12px;color:#9aa4b8}.statline b{font-size:18px}.statline small{color:#9aa4b8}.statline.gold{background:rgba(242,201,76,.12)}
@@ -2040,6 +2049,7 @@ body.has-nav .sticky-cta{bottom:calc(74px + env(safe-area-inset-bottom))}
 .look-card.done{border-color:#FFD54A;box-shadow:0 0 0 3px rgba(255,213,74,.25),0 0 34px rgba(255,213,74,.4);animation:lc-pop .4s cubic-bezier(.2,1.6,.4,1)}
 .lc-name{position:absolute;left:0;right:0;bottom:0;padding:8px 6px 10px;text-align:center;background:rgba(5,8,15,.9)}
 .lc-name small{display:block;font-size:12px;color:#AAB4C6}.lc-name b{display:block;font-family:var(--display);font-size:21px;letter-spacing:.03em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lc-name b.long{font-size:15px;line-height:1.25;white-space:normal;word-break:break-all;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .look-card.done .lc-name b{color:#FFD54A}
 @keyframes lc-pop{from{transform:scale(.9)}}
 /* 首页：标题 + 楼主帖 + 贴底的开始按钮 */
